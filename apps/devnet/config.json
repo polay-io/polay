@@ -1,0 +1,70 @@
+{
+  "chain_id": "polay-devnet-1",
+  "validators": 4,
+  "block_time_ms": 2000,
+  "initial_supply": 100000000,
+  "token_decimals": 9,
+  "rpc_port_start": 9944,
+  "p2p_port_start": 30333,
+  "genesis_accounts": [
+    {
+      "name": "faucet",
+      "balance": "50000000000000000",
+      "description": "Devnet faucet account for distributing test POL"
+    },
+    {
+      "name": "studio-test",
+      "balance": "10000000000000000",
+      "description": "Test game studio account for attestor registration and asset creation"
+    }
+  ],
+  "validator_config": {
+    "initial_stake": "10000000000000000",
+    "commission_rate": 1000,
+    "min_self_stake": "1000000000000000"
+  },
+  "consensus": {
+    "epoch_length": 100,
+    "max_validators": 21,
+    "min_validators": 1,
+    "block_time_ms": 2000,
+    "round_timeout_ms": 5000
+  },
+  "execution": {
+    "max_block_transactions": 500,
+    "max_transaction_size_bytes": 65536,
+    "base_fee": "100",
+    "fee_schedule": {
+      "Transfer": "100",
+      "CreateAssetClass": "500",
+      "MintAsset": "200",
+      "TransferAsset": "150",
+      "CreateListing": "300",
+      "PurchaseListing": "250",
+      "DelistListing": "100",
+      "CreateProfile": "200",
+      "UpdateProfile": "150",
+      "RecordAchievement": "100",
+      "RegisterAttestor": "1000",
+      "SubmitMatchResult": "200",
+      "Stake": "200",
+      "Unstake": "200",
+      "ClaimRewards": "100"
+    }
+  },
+  "mempool": {
+    "max_size": 10000,
+    "max_per_sender": 100,
+    "transaction_ttl_seconds": 300
+  },
+  "network": {
+    "bootnode_addrs": [],
+    "max_peers": 50,
+    "gossip_interval_ms": 500
+  },
+  "attestation": {
+    "quarantine_threshold": 50,
+    "min_anti_cheat_score": 0,
+    "max_players_per_match": 100
+  }
+}

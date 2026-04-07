@@ -1,0 +1,27 @@
+[package]
+name = "polay-rpc"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+polay-types = { workspace = true }
+polay-state = { workspace = true }
+polay-mempool = { workspace = true }
+polay-crypto = { workspace = true }
+polay-config = { workspace = true }
+polay-execution = { workspace = true }
+polay-staking = { workspace = true }
+jsonrpsee = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+hex = { workspace = true }
+parking_lot = { workspace = true }
+
+# tower-http CORS requires the same tower version that jsonrpsee uses
+# internally (0.4). We add it here so `set_http_middleware` gets the right type.
+tower_04 = { package = "tower", version = "0.4" }
+tower-http = { workspace = true }

@@ -1,0 +1,21 @@
+[package]
+name = "polay-mempool"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+polay-types = { workspace = true }
+polay-crypto = { workspace = true }
+dashmap = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "mempool_bench"
+harness = false

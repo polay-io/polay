@@ -1,0 +1,17 @@
+[package]
+name = "polay-staking"
+description = "Extended staking module for the POLAY gaming blockchain"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+polay-types = { workspace = true }
+polay-state = { workspace = true }
+polay-config = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+polay-execution = { workspace = true }

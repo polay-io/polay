@@ -1,0 +1,26 @@
+[package]
+name = "polay-state"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+polay-types = { workspace = true }
+borsh = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+rocksdb = { workspace = true }
+hex = { workspace = true }
+parking_lot = { workspace = true }
+sha2 = { workspace = true }
+rayon = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+criterion = { workspace = true }
+polay-crypto = { workspace = true }
+
+[[bench]]
+name = "state_bench"
+harness = false

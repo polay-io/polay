@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  validator-1:
+    build: .
+    command: polay run --genesis /data/genesis.json --data-dir /data/validator-1 --rpc-addr 0.0.0.0:9944 --validator-key /data/keys/validator-1.key --block-time 2000
+    ports:
+      - "9944:9944"
+    volumes:
+      - ./devnet-data:/data
+    environment:
+      - RUST_LOG=info
+    networks:
+      - polay-devnet
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9944/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  validator-2:
+    build: .
+    command: polay run --genesis /data/genesis.json --data-dir /data/validator-2 --rpc-addr 0.0.0.0:9944 --validator-key /data/keys/validator-2.key --block-time 2000
+    ports:
+      - "9945:9944"
+    volumes:
+      - ./devnet-data:/data
+    environment:
+      - RUST_LOG=info
+    networks:
+      - polay-devnet
+    depends_on:
+      validator-1:
+        condition: service_started
+
+  validator-3:
+    build: .
+    command: polay run --genesis /data/genesis.json --data-dir /data/validator-3 --rpc-addr 0.0.0.0:9944 --validator-key /data/keys/validator-3.key --block-time 2000
+    ports:
+      - "9946:9944"
+    volumes:
+      - ./devnet-data:/data
+    environment:
+      - RUST_LOG=info
+    networks:
+      - polay-devnet
+    depends_on:
+      validator-1:
+        condition: service_started
+
+  validator-4:
+    build: .
+    command: polay run --genesis /data/genesis.json --data-dir /data/validator-4 --rpc-addr 0.0.0.0:9944 --validator-key /data/keys/validator-4.key --block-time 2000
+    ports:
+      - "9947:9944"
+    volumes:
+      - ./devnet-data:/data
+    environment:
+      - RUST_LOG=info
+    networks:
+      - polay-devnet
+    depends_on:
+      validator-1:
+        condition: service_started
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: polay_indexer
+      POSTGRES_USER: polay
+      POSTGRES_PASSWORD: polay
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - polay-devnet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polay -d polay_indexer"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  indexer:
+    build:
+      context: ./apps/indexer
+      dockerfile: Dockerfile
+    environment:
+      - RPC_URL=http://validator-1:9944
+      - DATABASE_URL=postgres://polay:polay@postgres/polay_indexer
+      - RUST_LOG=info
+      - POLL_INTERVAL_MS=1000
+    networks:
+      - polay-devnet
+    depends_on:
+      validator-1:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  faucet:
+    build:
+      context: ./apps/faucet
+      dockerfile: Dockerfile
+    command: >
+      polay-faucet
+        --listen 0.0.0.0:8080
+        --rpc-url http://validator-1:9944
+        --secret-key ${FAUCET_SECRET_KEY:-0000000000000000000000000000000000000000000000000000000000000001}
+        --drip-amount 10000000
+        --cooldown-secs 3600
+        --max-drips-per-day 5
+    ports:
+      - "8080:8080"
+    networks:
+      - polay-devnet
+    depends_on:
+      validator-1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  explorer-api:
+    build:
+      context: ./apps/explorer-api
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgres://polay:polay@postgres/polay_indexer
+      - LISTEN_ADDR=0.0.0.0:3001
+      - RUST_LOG=info
+    ports:
+      - "3001:3001"
+    networks:
+      - polay-devnet
+    depends_on:
+      postgres:
+        condition: service_healthy
+      indexer:
+        condition: service_started
+
+networks:
+  polay-devnet:
+    driver: bridge
+
+volumes:
+  postgres-data:

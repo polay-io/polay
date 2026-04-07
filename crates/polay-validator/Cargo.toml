@@ -1,0 +1,25 @@
+[package]
+name = "polay-validator"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+polay-types = { workspace = true }
+polay-crypto = { workspace = true }
+polay-config = { workspace = true }
+polay-genesis = { workspace = true }
+polay-state = { workspace = true }
+polay-mempool = { workspace = true }
+polay-execution = { workspace = true }
+polay-consensus = { workspace = true }
+polay-staking = { workspace = true }
+polay-network = { workspace = true }
+polay-rpc = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+parking_lot = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }

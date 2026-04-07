@@ -1,0 +1,95 @@
+[workspace]
+resolver = "2"
+exclude = [
+    "apps/indexer",
+    "apps/faucet",
+    "apps/explorer-api",
+]
+members = [
+    "crates/polay-types",
+    "crates/polay-crypto",
+    "crates/polay-config",
+    "crates/polay-genesis",
+    "crates/polay-state",
+    "crates/polay-mempool",
+    "crates/polay-execution",
+    "crates/polay-consensus",
+    "crates/polay-network",
+    "crates/polay-rpc",
+    "crates/polay-validator",
+    "crates/polay-staking",
+    "crates/polay-attestation",
+    "crates/polay-market",
+    "crates/polay-identity",
+    "crates/polay-node",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["POLAY Labs"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/polaychain/polay"
+
+[workspace.dependencies]
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+borsh = { version = "1", features = ["derive"] }
+
+# Cryptography
+ed25519-dalek = { version = "2", features = ["serde", "rand_core"] }
+sha2 = "0.10"
+rand = "0.8"
+hex = { version = "0.4", features = ["serde"] }
+bs58 = "0.5"
+
+# Storage
+rocksdb = "0.22"
+
+# Async / Networking
+tokio = { version = "1", features = ["full"] }
+libp2p = { version = "0.54", features = ["tcp", "noise", "yamux", "gossipsub", "mdns", "tokio", "macros", "ed25519"] }
+
+# RPC
+jsonrpsee = { version = "0.24", features = ["server", "macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors"] }
+hyper = "1"
+
+# Error handling / logging
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Misc
+uuid = { version = "1", features = ["v4", "serde"] }
+dashmap = "6"
+parking_lot = "0.12"
+rayon = "1.10"
+bytes = "1"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# Internal crates
+polay-types = { path = "crates/polay-types" }
+polay-crypto = { path = "crates/polay-crypto" }
+polay-config = { path = "crates/polay-config" }
+polay-genesis = { path = "crates/polay-genesis" }
+polay-state = { path = "crates/polay-state" }
+polay-mempool = { path = "crates/polay-mempool" }
+polay-execution = { path = "crates/polay-execution" }
+polay-consensus = { path = "crates/polay-consensus" }
+polay-network = { path = "crates/polay-network" }
+polay-rpc = { path = "crates/polay-rpc" }
+polay-validator = { path = "crates/polay-validator" }
+polay-staking = { path = "crates/polay-staking" }
+polay-attestation = { path = "crates/polay-attestation" }
+polay-market = { path = "crates/polay-market" }
+polay-identity = { path = "crates/polay-identity" }
