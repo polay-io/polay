@@ -364,7 +364,7 @@ impl ConsensusStateMachine {
                 })
             }
             ConsensusState::Precommit => {
-                self.round += 1;
+                self.round = self.round.saturating_add(1);
                 info!(
                     height = self.height,
                     round = self.round,
@@ -500,7 +500,7 @@ impl ConsensusStateMachine {
         for vote in self.prevotes.values() {
             let stake = self.validator_set.get_stake(&vote.voter);
             let entry = stake_by_hash.entry(vote.block_hash).or_insert(0);
-            *entry += stake;
+            *entry = entry.saturating_add(stake);
             if *entry >= threshold {
                 return Some(vote.block_hash);
             }
@@ -517,7 +517,7 @@ impl ConsensusStateMachine {
         for vote in self.precommits.values() {
             let stake = self.validator_set.get_stake(&vote.voter);
             let entry = stake_by_hash.entry(vote.block_hash).or_insert(0);
-            *entry += stake;
+            *entry = entry.saturating_add(stake);
             if *entry >= threshold {
                 return Some(vote.block_hash);
             }

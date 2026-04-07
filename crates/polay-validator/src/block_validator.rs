@@ -538,7 +538,7 @@ mod tests {
         // Tamper with the transactions root (and recompute the block hash so
         // the block hash check passes first).
         block.header.transactions_root = Hash::new([0xDD; 32]);
-        block.header.compute_hash(|bytes| sha256(bytes).to_bytes());
+        block.header.hash = hash_block_header(&block.header).unwrap();
 
         let result =
             validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
@@ -636,7 +636,7 @@ mod tests {
         // Build a block with a different chain_id.
         let mut block = build_valid_block(1, Hash::ZERO, state_root, vec![]);
         block.header.chain_id = "evil-chain-1".to_string();
-        block.header.compute_hash(|bytes| sha256(bytes).to_bytes());
+        block.header.hash = hash_block_header(&block.header).unwrap();
 
         let result =
             validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);

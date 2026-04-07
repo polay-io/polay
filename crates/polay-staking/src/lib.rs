@@ -114,7 +114,10 @@ impl StakingModule {
     /// Return the total amount of native tokens staked across all validators.
     pub fn get_total_staked(store: &dyn StateStore) -> StakingResult<u64> {
         let validators = Self::get_validator_set(store)?;
-        let total = validators.iter().map(|v| v.stake).sum();
+        let total = validators
+            .iter()
+            .try_fold(0u64, |acc, v| acc.checked_add(v.stake))
+            .ok_or(StakingError::ArithmeticOverflow)?;
         Ok(total)
     }
 
@@ -287,8 +290,11 @@ impl StakingModule {
         }
 
         // Update SupplyInfo: total_minted and total_supply increase by the
-        // total reward distributed.
-        let total_distributed: u64 = payouts.iter().map(|(_, amt)| amt).sum();
+        // total reward distributed. Use checked arithmetic to prevent overflow.
+        let total_distributed: u64 = payouts
+            .iter()
+            .try_fold(0u64, |acc, (_, amt)| acc.checked_add(*amt))
+            .ok_or(StakingError::ArithmeticOverflow)?;
         if total_distributed > 0 {
             let mut supply = view.get_supply_info()?.unwrap_or_default();
             supply.total_minted = supply.total_minted.saturating_add(total_distributed);
@@ -309,6 +315,8 @@ impl StakingModule {
     /// - Validator stake is reduced.
     /// - All delegations for the validator are proportionally slashed.
     /// - The validator is jailed for `DEFAULT_JAIL_DURATION_BLOCKS`.
+    /// - If the validator's remaining stake drops to zero, the validator is
+    ///   deactivated (status set to `Unbonding`).
     /// - A [`SlashEvent`] record is returned (total slashed = validator + delegators).
     pub fn process_slashing(
         store: &dyn StateStore,
@@ -333,6 +341,15 @@ impl StakingModule {
 
         // Jail the validator for DEFAULT_JAIL_DURATION_BLOCKS blocks.
         validator.jail(height.saturating_add(DEFAULT_JAIL_DURATION_BLOCKS));
+
+        // If stake drops to zero, deactivate the validator entirely.
+        if validator.stake == 0 {
+            validator.status = ValidatorStatus::Unbonding;
+            debug!(
+                validator = %validator_addr,
+                "validator stake reduced to zero by slashing, deactivated"
+            );
+        }
 
         writer.set_validator(&validator)?;
 

@@ -51,9 +51,11 @@ pub fn execute_create_profile(
 
 /// Award a soulbound achievement to a player.
 ///
-/// Achievements are always soulbound (non-transferable).
+/// Achievements are always soulbound (non-transferable). Only a registered
+/// attestor is allowed to award achievements (prevents arbitrary reputation
+/// manipulation by untrusted accounts).
 pub fn execute_add_achievement(
-    _signer: &Address,
+    signer: &Address,
     player: &Address,
     achievement_id: &str,
     name: &str,
@@ -61,6 +63,12 @@ pub fn execute_add_achievement(
     store: &dyn StateStore,
     timestamp: u64,
 ) -> Result<Vec<Event>, ExecutionError> {
+    // Authorization: signer must be a registered attestor.
+    let view = StateView::new(store);
+    if view.get_attestor(signer)?.is_none() {
+        return Err(ExecutionError::Unauthorized);
+    }
+
     let achievement = Achievement {
         id: achievement_id.to_string(),
         player: *player,
@@ -76,6 +84,7 @@ pub fn execute_add_achievement(
         player = %player,
         achievement_id,
         name,
+        attestor = %signer,
         "achievement awarded"
     );
 
@@ -90,8 +99,9 @@ pub fn execute_add_achievement(
 ///
 /// Creates a default profile if one does not exist for the player, to allow
 /// reputation tracking even before the player explicitly creates a profile.
+/// Only a registered attestor is allowed to modify reputation.
 pub fn execute_update_reputation(
-    _signer: &Address,
+    signer: &Address,
     player: &Address,
     delta: i64,
     _reason: &str,
@@ -100,6 +110,11 @@ pub fn execute_update_reputation(
 ) -> Result<Vec<Event>, ExecutionError> {
     let view = StateView::new(store);
     let writer = StateWriter::new(store);
+
+    // Authorization: signer must be a registered attestor.
+    if view.get_attestor(signer)?.is_none() {
+        return Err(ExecutionError::Unauthorized);
+    }
 
     let mut profile = match view.get_profile(player)? {
         Some(p) => p,
@@ -122,6 +137,7 @@ pub fn execute_update_reputation(
         player = %player,
         delta,
         new_reputation = profile.reputation,
+        attestor = %signer,
         "reputation updated"
     );
 
@@ -136,9 +152,23 @@ pub fn execute_update_reputation(
 mod tests {
     use super::*;
     use polay_state::MemoryStore;
+    use polay_types::{Attestor, AttestorStatus};
 
     fn test_addr(byte: u8) -> Address {
         Address::new([byte; 32])
+    }
+
+    /// Register an attestor so identity operations are authorized.
+    fn register_attestor(store: &MemoryStore, addr: &Address) {
+        let attestor = Attestor {
+            address: *addr,
+            game_id: "test-game".to_string(),
+            endpoint: "localhost:8080".to_string(),
+            metadata: "{}".to_string(),
+            status: AttestorStatus::Active,
+            registered_at: 0,
+        };
+        StateWriter::new(store).set_attestor(&attestor).unwrap();
     }
 
     #[test]
@@ -171,10 +201,23 @@ mod tests {
     }
 
     #[test]
+    fn add_achievement_requires_attestor() {
+        let store = MemoryStore::new();
+        let non_attestor = test_addr(99);
+        let player = test_addr(2);
+
+        let err = execute_add_achievement(
+            &non_attestor, &player, "x", "X", "{}", &store, 500,
+        ).unwrap_err();
+        assert!(matches!(err, ExecutionError::Unauthorized));
+    }
+
+    #[test]
     fn add_achievement_happy_path() {
         let store = MemoryStore::new();
         let admin = test_addr(1);
         let player = test_addr(2);
+        register_attestor(&store, &admin);
 
         let events = execute_add_achievement(
             &admin,
@@ -200,10 +243,23 @@ mod tests {
     }
 
     #[test]
+    fn update_reputation_requires_attestor() {
+        let store = MemoryStore::new();
+        let non_attestor = test_addr(99);
+        let player = test_addr(2);
+
+        let err = execute_update_reputation(
+            &non_attestor, &player, 10, "reason", &store, 100,
+        ).unwrap_err();
+        assert!(matches!(err, ExecutionError::Unauthorized));
+    }
+
+    #[test]
     fn update_reputation_with_existing_profile() {
         let store = MemoryStore::new();
         let admin = test_addr(1);
         let player = test_addr(2);
+        register_attestor(&store, &admin);
 
         execute_create_profile(&player, "bob", "Bob", None, &store, 100).unwrap();
 
@@ -225,6 +281,7 @@ mod tests {
         let store = MemoryStore::new();
         let admin = test_addr(1);
         let player = test_addr(2);
+        register_attestor(&store, &admin);
 
         // No profile exists yet.
         assert!(StateView::new(&store).get_profile(&player).unwrap().is_none());

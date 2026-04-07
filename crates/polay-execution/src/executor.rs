@@ -80,7 +80,18 @@ pub struct Executor {
 
 impl Executor {
     /// Create a new executor with the given chain configuration.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `burn_bps + treasury_bps > 10_000` (fee split exceeds 100%).
     pub fn new(chain_config: ChainConfig) -> Self {
+        let fd = &chain_config.fee_distribution;
+        assert!(
+            fd.burn_bps as u32 + fd.treasury_bps as u32 <= 10_000,
+            "fee_distribution: burn_bps ({}) + treasury_bps ({}) exceeds 10,000",
+            fd.burn_bps,
+            fd.treasury_bps,
+        );
         Self { chain_config }
     }
 

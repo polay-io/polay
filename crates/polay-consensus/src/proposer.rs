@@ -1,4 +1,4 @@
-use polay_crypto::{merkle_root, sha256};
+use polay_crypto::{hash_block_header, merkle_root};
 use polay_types::address::Address;
 use polay_types::block::{Block, BlockHeader};
 use polay_types::hash::Hash;
@@ -59,11 +59,10 @@ impl BlockProposer {
             hash: Hash::ZERO,
         };
 
-        // Compute the block hash.
-        header.compute_hash(|bytes| {
-            let h = sha256(bytes);
-            h.to_bytes()
-        });
+        // Compute the block hash (domain-separated).
+        let block_hash = hash_block_header(&header)
+            .expect("block header hashing must not fail");
+        header.hash = block_hash;
 
         Block::new(header, transactions)
     }
@@ -76,6 +75,7 @@ impl BlockProposer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use polay_crypto::sha256;
     use polay_types::signature::Signature;
     use polay_types::transaction::{Transaction, TransactionAction};
 

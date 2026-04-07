@@ -79,8 +79,34 @@ pub struct ValidatorSet {
 impl ValidatorSet {
     /// Build a new `ValidatorSet`, computing `total_stake` from the provided
     /// list of validators.
+    ///
+    /// An empty validator list is allowed (e.g. at genesis before any
+    /// validators register). Consensus operations that require a non-empty
+    /// set (like `get_proposer`) will panic if called on an empty set.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the set contains duplicate addresses or if total stake
+    /// overflows `u64`.
     pub fn new(validators: Vec<ValidatorWeight>) -> Self {
-        let total_stake = validators.iter().map(|v| v.stake).sum();
+        if !validators.is_empty() {
+            // Verify no duplicate addresses.
+            let mut seen = std::collections::HashSet::new();
+            for v in &validators {
+                assert!(
+                    seen.insert(v.address),
+                    "duplicate validator address: {}",
+                    v.address,
+                );
+            }
+        }
+
+        // Use checked arithmetic for total stake.
+        let total_stake = validators
+            .iter()
+            .try_fold(0u64, |acc, v| acc.checked_add(v.stake))
+            .expect("total validator stake overflowed u64");
+
         Self {
             validators,
             total_stake,
@@ -118,9 +144,10 @@ impl ValidatorSet {
     /// two-thirds of the total stake.
     ///
     /// Computed as `(total_stake * 2) / 3 + 1`, which is the smallest integer
-    /// strictly greater than `total_stake * 2 / 3`.
+    /// strictly greater than `total_stake * 2 / 3`. Uses u128 intermediate
+    /// to prevent overflow for large total_stake values.
     pub fn quorum_threshold(&self) -> u64 {
-        (self.total_stake * 2) / 3 + 1
+        ((self.total_stake as u128 * 2) / 3 + 1) as u64
     }
 
     /// Number of validators in the set.

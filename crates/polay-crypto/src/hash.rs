@@ -12,28 +12,41 @@ pub fn sha256(data: &[u8]) -> Hash {
     Hash::new(out)
 }
 
-/// Hash a `Transaction` by Borsh-serializing it and computing SHA-256.
+// Domain-separation prefixes for different hash contexts.
+const DOMAIN_TX: &[u8] = b"POLAY-TX:";
+const DOMAIN_BLOCK: &[u8] = b"POLAY-BLK:";
+const DOMAIN_MERKLE: &[u8] = b"POLAY-MKL:";
+
+/// Hash a `Transaction` with domain separation.
 pub fn hash_transaction(tx: &Transaction) -> CryptoResult<Hash> {
     let bytes = borsh::to_vec(tx).map_err(|e| CryptoError::HashError(e.to_string()))?;
-    Ok(sha256(&bytes))
+    let mut prefixed = Vec::with_capacity(DOMAIN_TX.len() + bytes.len());
+    prefixed.extend_from_slice(DOMAIN_TX);
+    prefixed.extend_from_slice(&bytes);
+    Ok(sha256(&prefixed))
 }
 
-/// Hash a `BlockHeader`, excluding the `hash` field itself.
+/// Hash a `BlockHeader` with domain separation, excluding the `hash` field.
 ///
 /// Uses `BlockHeader::hash_input_bytes()` which zeroes the `hash` field
 /// before Borsh-encoding the full struct, producing a deterministic digest
 /// regardless of the current value of `header.hash`.
 pub fn hash_block_header(header: &BlockHeader) -> CryptoResult<Hash> {
     let bytes = header.hash_input_bytes();
-    Ok(sha256(&bytes))
+    let mut prefixed = Vec::with_capacity(DOMAIN_BLOCK.len() + bytes.len());
+    prefixed.extend_from_slice(DOMAIN_BLOCK);
+    prefixed.extend_from_slice(&bytes);
+    Ok(sha256(&prefixed))
 }
 
 /// Compute the Merkle root of a list of hashes using a simple binary Merkle tree.
 ///
 /// - Empty list  -> `Hash::ZERO`
 /// - Single hash -> that hash itself
-/// - Otherwise   -> pad to an even count by duplicating the last hash,
-///                  pair-wise combine by `SHA-256(left || right)`, and repeat.
+/// - Otherwise   -> pair-wise combine with domain-separated SHA-256. Unpaired
+///                  nodes at the end of an odd-length level are promoted directly
+///                  (not duplicated), which prevents second-preimage attacks
+///                  where `[A,B,C]` and `[A,B,C,C]` could produce the same root.
 pub fn merkle_root(hashes: &[Hash]) -> Hash {
     if hashes.is_empty() {
         return Hash::ZERO;
@@ -45,19 +58,24 @@ pub fn merkle_root(hashes: &[Hash]) -> Hash {
     let mut level: Vec<Hash> = hashes.to_vec();
 
     while level.len() > 1 {
-        // If odd number of nodes, duplicate the last one.
-        if level.len() % 2 != 0 {
-            let last = *level.last().unwrap();
-            level.push(last);
+        let mut next_level = Vec::with_capacity((level.len() + 1) / 2);
+
+        // Pair-wise combine.
+        let mut i = 0;
+        while i + 1 < level.len() {
+            let mut combined = Vec::with_capacity(DOMAIN_MERKLE.len() + 64);
+            combined.extend_from_slice(DOMAIN_MERKLE);
+            combined.extend_from_slice(level[i].as_bytes());
+            combined.extend_from_slice(level[i + 1].as_bytes());
+            next_level.push(sha256(&combined));
+            i += 2;
         }
 
-        let mut next_level = Vec::with_capacity(level.len() / 2);
-        for pair in level.chunks_exact(2) {
-            let mut combined = [0u8; 64];
-            combined[..32].copy_from_slice(pair[0].as_bytes());
-            combined[32..].copy_from_slice(pair[1].as_bytes());
-            next_level.push(sha256(&combined));
+        // Promote unpaired last node directly (no duplication).
+        if i < level.len() {
+            next_level.push(level[i]);
         }
+
         level = next_level;
     }
 
@@ -157,38 +175,47 @@ mod tests {
         let b = sha256(b"b");
         let root = merkle_root(&[a, b]);
 
-        // Manual: SHA-256(a || b)
-        let mut combined = [0u8; 64];
-        combined[..32].copy_from_slice(a.as_bytes());
-        combined[32..].copy_from_slice(b.as_bytes());
+        // Manual: SHA-256(DOMAIN || a || b)
+        let mut combined = Vec::new();
+        combined.extend_from_slice(b"POLAY-MKL:");
+        combined.extend_from_slice(a.as_bytes());
+        combined.extend_from_slice(b.as_bytes());
         let expected = sha256(&combined);
         assert_eq!(root, expected);
     }
 
     #[test]
-    fn merkle_root_three_pads() {
+    fn merkle_root_three_promotes_unpaired() {
         let a = sha256(b"a");
         let b = sha256(b"b");
         let c = sha256(b"c");
         let root = merkle_root(&[a, b, c]);
 
-        // Level 1: [H(a||b), H(c||c)]
-        let mut ab = [0u8; 64];
-        ab[..32].copy_from_slice(a.as_bytes());
-        ab[32..].copy_from_slice(b.as_bytes());
+        // Level 1: [H(DOMAIN||a||b), c]  (c is promoted, not duplicated)
+        let mut ab = Vec::new();
+        ab.extend_from_slice(b"POLAY-MKL:");
+        ab.extend_from_slice(a.as_bytes());
+        ab.extend_from_slice(b.as_bytes());
         let hab = sha256(&ab);
 
-        let mut cc = [0u8; 64];
-        cc[..32].copy_from_slice(c.as_bytes());
-        cc[32..].copy_from_slice(c.as_bytes());
-        let hcc = sha256(&cc);
-
-        // Level 0: H(hab || hcc)
-        let mut final_buf = [0u8; 64];
-        final_buf[..32].copy_from_slice(hab.as_bytes());
-        final_buf[32..].copy_from_slice(hcc.as_bytes());
+        // Level 0: H(DOMAIN||hab||c)
+        let mut final_buf = Vec::new();
+        final_buf.extend_from_slice(b"POLAY-MKL:");
+        final_buf.extend_from_slice(hab.as_bytes());
+        final_buf.extend_from_slice(c.as_bytes());
         let expected = sha256(&final_buf);
         assert_eq!(root, expected);
+    }
+
+    #[test]
+    fn merkle_root_second_preimage_resistance() {
+        // [A,B,C] and [A,B,C,ZERO] must produce DIFFERENT roots.
+        let a = sha256(b"a");
+        let b = sha256(b"b");
+        let c = sha256(b"c");
+        let root3 = merkle_root(&[a, b, c]);
+        let root4 = merkle_root(&[a, b, c, Hash::ZERO]);
+        assert_ne!(root3, root4, "merkle tree must resist second-preimage via padding");
     }
 
     #[test]

@@ -95,7 +95,9 @@ pub fn validate_stateless_with_config(
     // Derive address from pubkey and verify it matches the expected identity.
     let pubkey_bytes: [u8; 32] = tx.signer_pubkey[..32]
         .try_into()
-        .expect("length already checked");
+        .map_err(|_| ExecutionError::InvalidSignerPubkey(
+            "failed to convert signer_pubkey to [u8; 32]".to_string(),
+        ))?;
     let pubkey = PolayPublicKey::from_bytes(&pubkey_bytes).map_err(|e| {
         ExecutionError::InvalidSignerPubkey(format!("invalid Ed25519 public key: {e}"))
     })?;

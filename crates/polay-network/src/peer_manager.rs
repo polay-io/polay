@@ -6,6 +6,8 @@ pub const DEFAULT_SCORE: i32 = 100;
 pub const BAN_THRESHOLD: i32 = -100;
 pub const MAX_PEERS: usize = 50;
 pub const MIN_PEERS: usize = 4;
+/// Maximum connections allowed from the same IP address.
+pub const MAX_PEERS_PER_IP: usize = 5;
 
 /// Per-message score adjustment for a valid message.
 const GOOD_MESSAGE_SCORE: i32 = 1;
@@ -51,8 +53,11 @@ pub struct BanRecord {
 pub struct PeerManager {
     peers: HashMap<PeerId, PeerInfo>,
     banned: HashMap<PeerId, BanRecord>,
+    /// Maps PeerId -> IP address string (when known).
+    peer_ips: HashMap<PeerId, String>,
     max_peers: usize,
     min_peers: usize,
+    max_peers_per_ip: usize,
 }
 
 impl PeerManager {
@@ -60,8 +65,10 @@ impl PeerManager {
         Self {
             peers: HashMap::new(),
             banned: HashMap::new(),
+            peer_ips: HashMap::new(),
             max_peers,
             min_peers,
+            max_peers_per_ip: MAX_PEERS_PER_IP,
         }
     }
 
@@ -78,9 +85,30 @@ impl PeerManager {
         true
     }
 
+    /// Record a new peer connection with an associated IP address. Returns
+    /// `false` if the peer is banned, we are at capacity, or the IP has
+    /// reached its per-IP connection limit.
+    pub fn on_peer_connected_with_ip(&mut self, peer_id: PeerId, ip: String) -> bool {
+        if self.is_banned(&peer_id) {
+            return false;
+        }
+        if self.peers.len() >= self.max_peers {
+            return false;
+        }
+        // Per-IP limit check.
+        let ip_count = self.peer_ips.values().filter(|v| **v == ip).count();
+        if ip_count >= self.max_peers_per_ip {
+            return false;
+        }
+        self.peers.entry(peer_id).or_insert_with(PeerInfo::new);
+        self.peer_ips.insert(peer_id, ip);
+        true
+    }
+
     /// Record peer disconnection.
     pub fn on_peer_disconnected(&mut self, peer_id: &PeerId) {
         self.peers.remove(peer_id);
+        self.peer_ips.remove(peer_id);
     }
 
     /// Record a valid message from a peer (increases score).
@@ -138,6 +166,7 @@ impl PeerManager {
         duration: Option<Duration>,
     ) -> BanRecord {
         self.peers.remove(&peer_id);
+        self.peer_ips.remove(&peer_id);
         let record = BanRecord {
             peer_id,
             reason,
