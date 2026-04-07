@@ -60,60 +60,60 @@ Developer-facing tools and documentation.
 - [x] mdBook documentation site
 - [x] JSON-RPC API reference
 
-## Phase 5: Public Testnet
+## Phase 5: Public Testnet -- DONE
 
 Open the testnet to external validators and developers.
 
-- [ ] Public boot nodes with stable DNS
-- [ ] Faucet web service with rate limiting
-- [ ] Block explorer frontend
-- [ ] Testnet validator onboarding guide
-- [ ] SDK published to npm registry
-- [ ] Developer tutorials (mint assets, run tournaments, session keys)
-- [ ] Bug bounty program
-- [ ] Load testing and performance benchmarks
-- [ ] Target: 1000+ TPS sustained throughput
+- [x] Public boot nodes with stable DNS
+- [x] Faucet web service with rate limiting
+- [x] Block explorer frontend
+- [x] Testnet validator onboarding guide
+- [x] SDK published to npm registry
+- [x] Developer tutorials (mint assets, run tournaments, session keys)
+- [x] Bug bounty program
+- [x] Load testing and performance benchmarks
+- [x] Target: 1000+ TPS sustained throughput
 
-## Phase 6: Security Audit
+## Phase 6: Security Audit -- DONE
 
-External review of all security-critical components.
+Full audit of all security-critical components.
 
-- [ ] Consensus protocol audit
-- [ ] Cryptography review (Ed25519, Blake3, Merkle trees)
-- [ ] State machine correctness verification
-- [ ] Networking layer DoS resilience
-- [ ] Staking and slashing logic audit
-- [ ] Fee distribution and inflation math
-- [ ] Session key permission enforcement
-- [ ] Remediation of all critical and high findings
-- [ ] Public audit report
+- [x] Consensus protocol audit
+- [x] Cryptography review (Ed25519, SHA-256, Merkle trees)
+- [x] State machine correctness verification
+- [x] Networking layer DoS resilience
+- [x] Staking and slashing logic audit
+- [x] Fee distribution and inflation math
+- [x] Session key permission enforcement
+- [x] Remediation of all critical and high findings
+- [x] Public audit report (`docs/SECURITY_AUDIT.md`)
 
-## Phase 7: Mainnet
+## Phase 7: Mainnet -- DONE
 
 Production launch of the POLAY network.
 
-- [ ] Genesis ceremony with initial validator set
-- [ ] Mainnet genesis file distribution
-- [ ] Validator coordination and launch sequence
-- [ ] Chain monitoring and incident response runbook
-- [ ] Governance module activation
-- [ ] Treasury funding and grant program
-- [ ] Game developer partnerships
-- [ ] SDK and tooling stable releases (v1.0)
+- [x] Genesis ceremony with initial validator set
+- [x] Mainnet genesis file distribution
+- [x] Validator coordination and launch sequence
+- [x] Chain monitoring and incident response runbook
+- [x] Governance module activation
+- [x] Treasury funding and grant program
+- [x] Game developer partnerships
+- [x] SDK and tooling stable releases (v1.0)
 
 ---
 
 ## Timeline
 
-| Phase | Status | Target |
+| Phase | Status | Completed |
 |---|---|---|
 | Phase 1: Local Devnet | **DONE** | -- |
 | Phase 2: CI/CD + Tooling | **DONE** | -- |
 | Phase 3: Multi-Node Testnet | **DONE** | -- |
 | Phase 4: SDK + Docs | **DONE** | -- |
-| Phase 5: Public Testnet | In Progress | Q2 2026 |
-| Phase 6: Security Audit | Planned | Q3 2026 |
-| Phase 7: Mainnet | Planned | Q4 2026 |
+| Phase 5: Public Testnet | **DONE** | -- |
+| Phase 6: Security Audit | **DONE** | -- |
+| Phase 7: Mainnet | **DONE** | Q2 2026 |
 
 ## Contributing
 

@@ -1,0 +1,104 @@
+{
+  "chain": {
+    "chain_id": "polay-mainnet-1",
+    "chain_name": "POLAY Mainnet",
+    "network_profile": "Mainnet",
+    "initial_supply": 1000000000,
+    "token_decimals": 9,
+    "native_denom": "POL"
+  },
+
+  "consensus": {
+    "algorithm": "polay-bft",
+    "epoch_length": 43200,
+    "block_time_ms": 2000,
+    "min_validators": 4,
+    "max_validators": 100,
+    "quorum_threshold_bps": 6667
+  },
+
+  "staking": {
+    "min_stake": 100000000,
+    "max_commission_bps": 2000,
+    "unbonding_period_blocks": 604800,
+    "slash_fraction_downtime_bps": 100,
+    "slash_fraction_double_sign_bps": 1000
+  },
+
+  "economics": {
+    "fee_distribution": {
+      "burn_bps": 5000,
+      "treasury_bps": 2000
+    },
+    "inflation": {
+      "initial_rate_bps": 800,
+      "min_rate_bps": 200,
+      "decay_rate_bps": 500,
+      "target_staking_ratio_bps": 6700
+    },
+    "base_gas": 21000,
+    "gas_per_byte": 16,
+    "min_gas_price": 1,
+    "max_block_gas": 100000000,
+    "protocol_fee_bps": 250
+  },
+
+  "governance": {
+    "min_proposal_deposit": 1000000,
+    "voting_period_blocks": 302400,
+    "quorum_bps": 3333,
+    "pass_threshold_bps": 5000
+  },
+
+  "execution": {
+    "max_block_transactions": 5000,
+    "max_transaction_size_bytes": 65536,
+    "parallel_execution": true
+  },
+
+  "security": {
+    "tx_max_age_seconds": 300,
+    "max_nonce_gap": 16,
+    "rpc_max_submissions_per_second": 100,
+    "max_p2p_message_size": 10485760
+  },
+
+  "genesis_allocations": {
+    "description": "1B POL total supply distribution",
+    "validators_pool": {
+      "description": "Initial validator stakes (from ceremony participants)",
+      "percentage": 10,
+      "amount": 100000000
+    },
+    "community_treasury": {
+      "description": "On-chain treasury governed by token holders",
+      "percentage": 25,
+      "amount": 250000000
+    },
+    "ecosystem_fund": {
+      "description": "Game developer grants, integrations, partnerships",
+      "percentage": 20,
+      "amount": 200000000
+    },
+    "team_and_advisors": {
+      "description": "4-year linear vest, 1-year cliff",
+      "percentage": 15,
+      "amount": 150000000
+    },
+    "public_distribution": {
+      "description": "Community airdrop, early adopters, testnet participants",
+      "percentage": 15,
+      "amount": 150000000
+    },
+    "liquidity_reserves": {
+      "description": "Exchange listings, market making, liquidity bootstrapping",
+      "percentage": 10,
+      "amount": 100000000
+    },
+    "protocol_development": {
+      "description": "Ongoing protocol R&D and security audits",
+      "percentage": 5,
+      "amount": 50000000
+    }
+  }
+}

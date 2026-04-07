@@ -37,6 +37,7 @@
 - [Monitoring](./ops/monitoring.md)
 - [Docker Deployment](./ops/docker.md)
 - [Cloud Deployment](./ops/cloud.md)
+- [Incident Response](./ops/incident-response.md)
 
 ---
 

@@ -1,0 +1,252 @@
+###############################################################################
+# POLAY Mainnet — Production Docker Compose
+#
+# This compose file deploys a single POLAY mainnet validator with its full
+# supporting infrastructure (monitoring, indexer, explorer, faucet).
+#
+# Prerequisites:
+#   - genesis.json from the mainnet genesis ceremony
+#   - Validator key file at ./keys/validator.key
+#
+# Usage:
+#   docker compose -f docker-compose.mainnet.yml up -d
+#
+###############################################################################
+
+services:
+  # ---------------------------------------------------------------------------
+  # Validator Node
+  # ---------------------------------------------------------------------------
+  polay-validator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: polay-mainnet-validator
+    restart: unless-stopped
+    volumes:
+      - mainnet-state:/data/state
+      - ./keys/validator.key:/data/keys/validator.key:ro
+      - ./genesis.json:/data/genesis.json:ro
+    ports:
+      - "9944:9944"     # JSON-RPC
+      - "30333:30333"   # P2P
+    environment:
+      POLAY_CHAIN: mainnet
+      POLAY_DATA_DIR: /data/state
+      POLAY_GENESIS: /data/genesis.json
+      POLAY_VALIDATOR_KEY: /data/keys/validator.key
+      POLAY_RPC_HOST: "0.0.0.0"
+      POLAY_RPC_PORT: "9944"
+      POLAY_P2P_PORT: "30333"
+      POLAY_LOG_LEVEL: info
+      POLAY_BOOT_NODES: "/dns4/boot1.polaychain.com/tcp/30333,/dns4/boot2.polaychain.com/tcp/30333,/dns4/boot3.polaychain.com/tcp/30333"
+      RUST_LOG: info
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9944/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 8G
+        reservations:
+          cpus: "2.0"
+          memory: 4G
+    logging:
+      driver: json-file
+      options:
+        max-size: "100m"
+        max-file: "10"
+    networks:
+      - polay-mainnet
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL (Indexer Backend)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: polay-mainnet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: polay_mainnet
+      POSTGRES_USER: polay
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polay -d polay_mainnet"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - polay-mainnet
+
+  # ---------------------------------------------------------------------------
+  # Indexer
+  # ---------------------------------------------------------------------------
+  indexer:
+    build:
+      context: ./apps/indexer
+      dockerfile: Dockerfile
+    container_name: polay-mainnet-indexer
+    restart: unless-stopped
+    depends_on:
+      polay-validator:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://polay:${DB_PASSWORD}@postgres:5432/polay_mainnet"
+      RPC_URL: "http://polay-validator:9944"
+      POLL_INTERVAL_MS: "1000"
+      RUST_LOG: info
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
+    networks:
+      - polay-mainnet
+
+  # ---------------------------------------------------------------------------
+  # Explorer API
+  # ---------------------------------------------------------------------------
+  explorer-api:
+    build:
+      context: ./apps/explorer-api
+      dockerfile: Dockerfile
+    container_name: polay-mainnet-explorer-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: "postgres://polay:${DB_PASSWORD}@postgres:5432/polay_mainnet"
+      LISTEN_PORT: "3001"
+      RUST_LOG: info
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - polay-mainnet
+
+  # ---------------------------------------------------------------------------
+  # Prometheus
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: polay-mainnet-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus-mainnet.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=90d"
+      - "--storage.tsdb.retention.size=50GB"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    networks:
+      - polay-mainnet
+
+  # ---------------------------------------------------------------------------
+  # Metrics Exporter
+  # ---------------------------------------------------------------------------
+  metrics-exporter:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.exporter
+    container_name: polay-mainnet-metrics
+    restart: unless-stopped
+    depends_on:
+      polay-validator:
+        condition: service_healthy
+    environment:
+      VALIDATOR_URLS: "http://polay-validator:9944"
+    ports:
+      - "9100:9100"
+    networks:
+      - polay-mainnet
+
+  # ---------------------------------------------------------------------------
+  # Grafana
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: polay-mainnet-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_password
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SERVER_ROOT_URL: "https://monitor.polaychain.com"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    secrets:
+      - grafana_password
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - polay-mainnet
+
+# ---------------------------------------------------------------------------
+# Volumes
+# ---------------------------------------------------------------------------
+volumes:
+  mainnet-state:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+
+# ---------------------------------------------------------------------------
+# Secrets
+# ---------------------------------------------------------------------------
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  grafana_password:
+    file: ./secrets/grafana_password.txt
+
+# ---------------------------------------------------------------------------
+# Network
+# ---------------------------------------------------------------------------
+networks:
+  polay-mainnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
