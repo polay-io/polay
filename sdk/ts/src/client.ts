@@ -5,12 +5,25 @@ import type {
   Attestor,
   Block,
   ChainInfo,
+  EpochInfo,
+  Event,
+  GasEstimate,
+  HealthResponse,
+  InflationRate,
   JsonRpcRequest,
   JsonRpcResponse,
   Listing,
   MatchResult,
+  NetworkStats,
+  NodeInfo,
   PlayerProfile,
+  Proposal,
+  SessionInfo,
   SignedTransaction,
+  SupplyInfo,
+  Transaction,
+  TransactionReceipt,
+  UnbondingEntry,
   ValidatorInfo,
 } from "./types.js";
 
@@ -203,6 +216,203 @@ export class PolayClient {
       "polay_getTransaction",
       [txHash],
     );
+  }
+
+  /** Fetch the receipt for a confirmed transaction. */
+  async getTransactionReceipt(txHash: string): Promise<TransactionReceipt | null> {
+    return this.rpcCall<TransactionReceipt | null>(
+      "polay_getTransactionReceipt",
+      [txHash],
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Block receipts & events
+  // -------------------------------------------------------------------------
+
+  /** Fetch all transaction receipts in a block. */
+  async getBlockReceipts(height: number): Promise<TransactionReceipt[]> {
+    return this.rpcCall<TransactionReceipt[]>("polay_getBlockReceipts", [height]);
+  }
+
+  /** Fetch all events emitted in a block. */
+  async getBlockEvents(height: number): Promise<Event[]> {
+    return this.rpcCall<Event[]>("polay_getBlockEvents", [height]);
+  }
+
+  // -------------------------------------------------------------------------
+  // Staking queries (extended)
+  // -------------------------------------------------------------------------
+
+  /** Fetch the full active validator set. */
+  async getActiveValidatorSet(): Promise<ValidatorInfo[]> {
+    return this.rpcCall<ValidatorInfo[]>("polay_getActiveValidatorSet", []);
+  }
+
+  /** Fetch unbonding entries for a delegator. */
+  async getUnbondingEntries(address: string): Promise<UnbondingEntry[]> {
+    return this.rpcCall<UnbondingEntry[]>("polay_getUnbondingEntries", [address]);
+  }
+
+  // -------------------------------------------------------------------------
+  // Governance queries
+  // -------------------------------------------------------------------------
+
+  /** Fetch a governance proposal by ID. */
+  async getProposal(proposalId: string): Promise<Proposal | null> {
+    return this.rpcCall<Proposal | null>("polay_getProposal", [proposalId]);
+  }
+
+  /** Fetch all governance proposals. */
+  async getProposals(): Promise<Proposal[]> {
+    return this.rpcCall<Proposal[]>("polay_getProposals", []);
+  }
+
+  // -------------------------------------------------------------------------
+  // Session key queries
+  // -------------------------------------------------------------------------
+
+  /** Fetch a session key delegation. */
+  async getSession(granter: string, sessionAddress: string): Promise<SessionInfo | null> {
+    return this.rpcCall<SessionInfo | null>("polay_getSession", [granter, sessionAddress]);
+  }
+
+  /** Fetch all active session keys for a granter. */
+  async getActiveSessions(granter: string): Promise<SessionInfo[]> {
+    return this.rpcCall<SessionInfo[]>("polay_getActiveSessions", [granter]);
+  }
+
+  // -------------------------------------------------------------------------
+  // Epoch & economics queries
+  // -------------------------------------------------------------------------
+
+  /** Fetch epoch info by epoch number. */
+  async getEpochInfo(epoch: number): Promise<EpochInfo | null> {
+    return this.rpcCall<EpochInfo | null>("polay_getEpochInfo", [epoch]);
+  }
+
+  /** Fetch the current epoch number. */
+  async getCurrentEpoch(): Promise<number> {
+    return this.rpcCall<number>("polay_getCurrentEpoch", []);
+  }
+
+  /** Fetch on-chain supply information (total, circulating, staked, burned, treasury). */
+  async getSupplyInfo(): Promise<SupplyInfo | null> {
+    return this.rpcCall<SupplyInfo | null>("polay_getSupplyInfo", []);
+  }
+
+  /** Fetch the current inflation rate. */
+  async getInflationRate(): Promise<InflationRate> {
+    return this.rpcCall<InflationRate>("polay_getInflationRate", []);
+  }
+
+  /** Fetch the current block reward amount. */
+  async getBlockReward(): Promise<string> {
+    const result = await this.rpcCall<number>("polay_getBlockReward", []);
+    return String(result);
+  }
+
+  /** Estimate gas for a transaction. */
+  async estimateGas(tx: Transaction): Promise<GasEstimate> {
+    return this.rpcCall<GasEstimate>("polay_estimateGas", [tx]);
+  }
+
+  // -------------------------------------------------------------------------
+  // Health & node info
+  // -------------------------------------------------------------------------
+
+  /** Health check — returns node status, height, and sync state. */
+  async health(): Promise<HealthResponse> {
+    return this.rpcCall<HealthResponse>("polay_health", []);
+  }
+
+  /** Fetch detailed node information. */
+  async getNodeInfo(): Promise<NodeInfo> {
+    return this.rpcCall<NodeInfo>("polay_getNodeInfo", []);
+  }
+
+  /** Fetch network-level statistics. */
+  async getNetworkStats(): Promise<NetworkStats> {
+    return this.rpcCall<NetworkStats>("polay_getNetworkStats", []);
+  }
+
+  // -------------------------------------------------------------------------
+  // WebSocket subscriptions
+  // -------------------------------------------------------------------------
+
+  /**
+   * Subscribe to real-time events via WebSocket.
+   *
+   * @param wsUrl  WebSocket URL (e.g. "ws://localhost:9944")
+   * @param method Subscription method (e.g. "polay_subscribeNewBlocks")
+   * @param onMessage Callback for each received message
+   * @returns An unsubscribe function
+   */
+  async subscribe<T>(
+    wsUrl: string,
+    method: string,
+    onMessage: (data: T) => void,
+  ): Promise<() => void> {
+    const ws = new WebSocket(wsUrl);
+    let subscriptionId: string | null = null;
+
+    return new Promise((resolve, reject) => {
+      ws.onopen = () => {
+        const id = this.nextId++;
+        ws.send(JSON.stringify({
+          jsonrpc: "2.0",
+          id,
+          method,
+          params: [],
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(String(event.data));
+
+        // Subscription confirmation
+        if (msg.result && !msg.params) {
+          subscriptionId = msg.result;
+          resolve(() => {
+            ws.close();
+          });
+          return;
+        }
+
+        // Subscription notification
+        if (msg.params?.result) {
+          onMessage(msg.params.result as T);
+        }
+      };
+
+      ws.onerror = (err) => {
+        reject(new TransportError(0, `WebSocket error: ${err}`));
+      };
+    });
+  }
+
+  /** Subscribe to new blocks. */
+  async subscribeNewBlocks(
+    wsUrl: string,
+    onBlock: (block: Block) => void,
+  ): Promise<() => void> {
+    return this.subscribe<Block>(wsUrl, "polay_subscribeNewBlocks", onBlock);
+  }
+
+  /** Subscribe to new transactions. */
+  async subscribeNewTransactions(
+    wsUrl: string,
+    onTx: (tx: SignedTransaction) => void,
+  ): Promise<() => void> {
+    return this.subscribe<SignedTransaction>(wsUrl, "polay_subscribeNewTransactions", onTx);
+  }
+
+  /** Subscribe to on-chain events. */
+  async subscribeEvents(
+    wsUrl: string,
+    onEvent: (event: Event) => void,
+  ): Promise<() => void> {
+    return this.subscribe<Event>(wsUrl, "polay_subscribeEvents", onEvent);
   }
 
   // -------------------------------------------------------------------------

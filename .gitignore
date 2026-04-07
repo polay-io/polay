@@ -39,6 +39,9 @@ postgres-data/
 # Testnet data
 /testnet-data
 
+# mdBook build output
+docs/book/
+
 # Terraform
 *.tfstate
 *.tfstate.*

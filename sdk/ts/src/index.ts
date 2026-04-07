@@ -27,6 +27,37 @@ export type {
   ChainInfo,
   JsonRpcRequest,
   JsonRpcResponse,
+  // Governance
+  ProposalAction,
+  VoteOption,
+  ProposalStatus,
+  Proposal,
+  // Session keys
+  SessionPermission,
+  SessionInfo,
+  // Rentals
+  RentalStatus,
+  Rental,
+  // Guilds
+  GuildRole,
+  Guild,
+  GuildMembership,
+  // Tournaments
+  TournamentStatus,
+  Tournament,
+  // Economics
+  SupplyInfo,
+  InflationRate,
+  // Epoch
+  EpochInfo,
+  // Health & node info
+  HealthResponse,
+  NodeInfo,
+  NetworkStats,
+  GasEstimate,
+  TransactionReceipt,
+  Event,
+  UnbondingEntry,
 } from "./types.js";
 
 // Client
@@ -47,4 +78,8 @@ export {
   exampleMarketplaceFlow,
   exampleAttestationFlow,
   exampleIdentityAndStaking,
+  exampleGuildFlow,
+  exampleTournamentFlow,
+  exampleRentalFlow,
+  exampleSessionKeyFlow,
 } from "./examples.js";

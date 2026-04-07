@@ -297,3 +297,296 @@ export async function exampleIdentityAndStaking(
     console.log(`Profile reputation    : ${profile.reputation}`);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Example 5: Guild flow
+// ---------------------------------------------------------------------------
+
+/**
+ * Guild management flow:
+ *
+ * 1. Create a guild.
+ * 2. Invite a member (they join).
+ * 3. Deposit to the guild treasury.
+ * 4. Promote the member to officer.
+ *
+ * Assumes both keypairs have funds.
+ */
+export async function exampleGuildFlow(
+  client: PolayClient,
+  keypair: PolayKeypair,
+): Promise<void> {
+  const builder = new TransactionBuilder();
+
+  const account = await client.getAccount(keypair.address);
+  let nonce = account?.nonce ?? 0;
+
+  // Step 1: Create a guild.
+  const createHash = await sendAction(client, builder, keypair, nonce++, {
+    type: "CreateGuild",
+    name: "Dragon Slayers",
+    description: "Elite PvP guild",
+    max_members: 50,
+  });
+  console.log(`CreateGuild tx       : ${createHash}`);
+  const guildId = createHash; // guild ID is typically derived from tx
+
+  // Step 2: A new member joins.
+  const member = PolayKeypair.generate();
+
+  // Fund the member first.
+  await sendAction(client, builder, keypair, nonce++, {
+    type: "Transfer",
+    to: member.address,
+    amount: "100000",
+  });
+
+  const memberAccount = await client.getAccount(member.address);
+  const memberNonce = memberAccount?.nonce ?? 0;
+  const joinHash = await sendAction(client, builder, member, memberNonce, {
+    type: "JoinGuild",
+    guild_id: guildId,
+  });
+  console.log(`JoinGuild tx         : ${joinHash}`);
+
+  // Step 3: Leader deposits to guild treasury.
+  const depositHash = await sendAction(client, builder, keypair, nonce++, {
+    type: "GuildDeposit",
+    guild_id: guildId,
+    amount: "50000",
+  });
+  console.log(`GuildDeposit tx      : ${depositHash}`);
+
+  // Step 4: Promote member to officer.
+  const promoteHash = await sendAction(client, builder, keypair, nonce++, {
+    type: "GuildPromote",
+    guild_id: guildId,
+    member: member.address,
+    role: "Officer",
+  });
+  console.log(`GuildPromote tx      : ${promoteHash}`);
+}
+
+// ---------------------------------------------------------------------------
+// Example 6: Tournament flow
+// ---------------------------------------------------------------------------
+
+/**
+ * Tournament lifecycle:
+ *
+ * 1. Create a tournament with entry fee and prize distribution.
+ * 2. Players join the tournament.
+ * 3. Organizer starts the tournament.
+ * 4. Report results and distribute prizes.
+ *
+ * Assumes organizer keypair has funds.
+ */
+export async function exampleTournamentFlow(
+  client: PolayClient,
+  keypair: PolayKeypair,
+): Promise<void> {
+  const builder = new TransactionBuilder();
+
+  const account = await client.getAccount(keypair.address);
+  let nonce = account?.nonce ?? 0;
+
+  // Step 1: Create tournament (70% first, 20% second, 10% third).
+  const createHash = await sendAction(client, builder, keypair, nonce++, {
+    type: "CreateTournament",
+    name: "Arena Championship",
+    game_id: "arena-battle-v1",
+    entry_fee: "1000",
+    max_participants: 32,
+    min_participants: 4,
+    start_height: 9999999,
+    prize_distribution: [7000, 2000, 1000],
+  });
+  console.log(`CreateTournament tx  : ${createHash}`);
+  const tournamentId = createHash;
+
+  // Step 2: Players join.
+  const players = [PolayKeypair.generate(), PolayKeypair.generate()];
+  for (const player of players) {
+    // Fund the player.
+    await sendAction(client, builder, keypair, nonce++, {
+      type: "Transfer",
+      to: player.address,
+      amount: "10000",
+    });
+
+    const pAccount = await client.getAccount(player.address);
+    const pNonce = pAccount?.nonce ?? 0;
+    const joinHash = await sendAction(client, builder, player, pNonce, {
+      type: "JoinTournament",
+      tournament_id: tournamentId,
+    });
+    console.log(`JoinTournament tx    : ${joinHash}`);
+  }
+
+  // Step 3: Organizer starts the tournament.
+  const startHash = await sendAction(client, builder, keypair, nonce++, {
+    type: "StartTournament",
+    tournament_id: tournamentId,
+  });
+  console.log(`StartTournament tx   : ${startHash}`);
+
+  // Step 4: Report results (player 0 wins, player 1 second).
+  const reportHash = await sendAction(client, builder, keypair, nonce++, {
+    type: "ReportTournamentResults",
+    tournament_id: tournamentId,
+    rankings: players.map((p) => p.address),
+  });
+  console.log(`ReportResults tx     : ${reportHash}`);
+
+  // Step 5: Winners claim prizes.
+  for (const player of players) {
+    const pAccount = await client.getAccount(player.address);
+    const pNonce = pAccount?.nonce ?? 0;
+    const claimHash = await sendAction(client, builder, player, pNonce + 1, {
+      type: "ClaimTournamentPrize",
+      tournament_id: tournamentId,
+    });
+    console.log(`ClaimPrize tx        : ${claimHash}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Example 7: Asset rental flow
+// ---------------------------------------------------------------------------
+
+/**
+ * Asset rental flow:
+ *
+ * 1. Owner creates an asset and lists it for rent.
+ * 2. Renter rents the asset.
+ * 3. Renter returns the asset.
+ *
+ * Assumes both keypairs have funds and assets.
+ */
+export async function exampleRentalFlow(
+  client: PolayClient,
+  keypair: PolayKeypair,
+): Promise<void> {
+  const builder = new TransactionBuilder();
+
+  const account = await client.getAccount(keypair.address);
+  let nonce = account?.nonce ?? 0;
+
+  // Create an asset class to rent out.
+  const createHash = await sendAction(client, builder, keypair, nonce++, {
+    type: "CreateAssetClass",
+    name: "Rare Mount",
+    symbol: "RMNT",
+    asset_type: "NonFungible",
+    max_supply: "100",
+    metadata_uri: "https://polay.io/assets/rare-mount.json",
+  });
+  const assetClassId = createHash;
+
+  // Mint one.
+  await sendAction(client, builder, keypair, nonce++, {
+    type: "MintAsset",
+    asset_class_id: assetClassId,
+    to: keypair.address,
+    amount: "1",
+    metadata: null,
+  });
+
+  // Step 1: List for rent.
+  const assetId = "0".repeat(64); // first minted instance
+  const listHash = await sendAction(client, builder, keypair, nonce++, {
+    type: "ListForRent",
+    asset_class_id: assetClassId,
+    asset_id: assetId,
+    price_per_block: "5",
+    deposit: "500",
+    min_duration: 10,
+    max_duration: 1000,
+  });
+  console.log(`ListForRent tx       : ${listHash}`);
+  const rentalId = listHash;
+
+  // Step 2: Renter rents for 100 blocks.
+  const renter = PolayKeypair.generate();
+  await sendAction(client, builder, keypair, nonce++, {
+    type: "Transfer",
+    to: renter.address,
+    amount: "10000",
+  });
+
+  const renterAccount = await client.getAccount(renter.address);
+  let renterNonce = renterAccount?.nonce ?? 0;
+  const rentHash = await sendAction(client, builder, renter, renterNonce++, {
+    type: "RentAsset",
+    rental_id: rentalId,
+    duration: 100,
+  });
+  console.log(`RentAsset tx         : ${rentHash}`);
+
+  // Step 3: Renter returns early.
+  const returnHash = await sendAction(client, builder, renter, renterNonce++, {
+    type: "ReturnRental",
+    rental_id: rentalId,
+  });
+  console.log(`ReturnRental tx      : ${returnHash}`);
+}
+
+// ---------------------------------------------------------------------------
+// Example 8: Session key flow
+// ---------------------------------------------------------------------------
+
+/**
+ * Session key delegation for gasless gaming:
+ *
+ * 1. Create a temporary session key with limited permissions.
+ * 2. Use the session key for game transactions.
+ * 3. Revoke the session key when done.
+ *
+ * Assumes the keypair has funds.
+ */
+export async function exampleSessionKeyFlow(
+  client: PolayClient,
+  keypair: PolayKeypair,
+): Promise<void> {
+  const builder = new TransactionBuilder();
+
+  const account = await client.getAccount(keypair.address);
+  let nonce = account?.nonce ?? 0;
+
+  // Generate a temporary session keypair.
+  const sessionKey = PolayKeypair.generate();
+  const sessionPubkeyHex = Buffer.from(sessionKey.publicKey).toString("hex");
+
+  // Step 1: Create session key (valid for 1 hour, 1M spending limit).
+  const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+  const createHash = await sendAction(client, builder, keypair, nonce++, {
+    type: "CreateSession",
+    session_pubkey: sessionPubkeyHex,
+    permissions: "Gaming",
+    expires_at: expiresAt,
+    spending_limit: "1000000",
+  });
+  console.log(`CreateSession tx     : ${createHash}`);
+
+  // Step 2: Use session key for a game action (transfer on behalf of granter).
+  const tx = builder.build({
+    signer: keypair.address,
+    nonce: nonce++,
+    action: { type: "Transfer", to: PolayKeypair.generate().address, amount: "100" },
+    session: sessionKey.address, // session key signs instead of master key
+  });
+  const signed = await TransactionBuilder.sign(tx, sessionKey);
+  const txHash = await client.submitTransaction(signed);
+  console.log(`Session tx           : ${txHash}`);
+
+  // Step 3: Revoke session key.
+  const revokeHash = await sendAction(client, builder, keypair, nonce++, {
+    type: "RevokeSession",
+    session_address: sessionKey.address,
+  });
+  console.log(`RevokeSession tx     : ${revokeHash}`);
+
+  // Verify revocation.
+  const sessions = await client.getActiveSessions(keypair.address);
+  console.log(`Active sessions      : ${sessions.length}`);
+}

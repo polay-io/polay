@@ -1,0 +1,19 @@
+[book]
+title = "POLAY Documentation"
+authors = ["POLAY Labs"]
+language = "en"
+multilingual = false
+src = "src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/polaychain/polay"
+site-url = "/"
+
+[output.html.fold]
+enable = true
+level = 1
