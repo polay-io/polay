@@ -1,0 +1,10 @@
+# Copy this file to terraform.tfvars and fill in your values.
+
+region          = "us-east-1"
+instance_type   = "t3.medium"
+ssh_key_name    = "your-aws-key-name"
+validator_count = 4
+docker_image    = "ghcr.io/polaychain/polay:main"
+
+# Restrict SSH access to your IP for security:
+# allowed_ssh_cidrs = ["1.2.3.4/32"]

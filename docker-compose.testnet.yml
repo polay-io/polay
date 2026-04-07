@@ -1,0 +1,260 @@
+# docker-compose.testnet.yml
+#
+# Multi-validator P2P testnet. Run with:
+#   ./scripts/launch-testnet.sh        (generates keys + genesis, then boots)
+#   docker compose -f docker-compose.testnet.yml up --build
+#
+# All 4 validators connect via libp2p gossipsub. Validator-1 acts as the
+# boot node; validators 2-4 dial into it on startup.
+
+services:
+  validator-1:
+    build: .
+    container_name: polay-validator-1
+    command: >
+      polay run
+        --genesis /data/genesis.json
+        --data-dir /data/validator-1/state
+        --rpc-addr 0.0.0.0:9944
+        --validator-key /data/keys/validator-1.key
+        --block-time 2000
+        --log-level info
+        --p2p-addr /ip4/0.0.0.0/tcp/30333
+    ports:
+      - "9944:9944"
+      - "30333:30333"
+    volumes:
+      - ./testnet-data:/data
+    environment:
+      - RUST_LOG=info
+    networks:
+      polay-testnet:
+        ipv4_address: 172.28.0.10
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9944"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  validator-2:
+    build: .
+    container_name: polay-validator-2
+    command: >
+      polay run
+        --genesis /data/genesis.json
+        --data-dir /data/validator-2/state
+        --rpc-addr 0.0.0.0:9944
+        --validator-key /data/keys/validator-2.key
+        --block-time 2000
+        --log-level info
+        --p2p-addr /ip4/0.0.0.0/tcp/30333
+        --boot-nodes /ip4/172.28.0.10/tcp/30333
+    ports:
+      - "9945:9944"
+      - "30334:30333"
+    volumes:
+      - ./testnet-data:/data
+    environment:
+      - RUST_LOG=info
+    networks:
+      polay-testnet:
+        ipv4_address: 172.28.0.11
+    depends_on:
+      validator-1:
+        condition: service_healthy
+
+  validator-3:
+    build: .
+    container_name: polay-validator-3
+    command: >
+      polay run
+        --genesis /data/genesis.json
+        --data-dir /data/validator-3/state
+        --rpc-addr 0.0.0.0:9944
+        --validator-key /data/keys/validator-3.key
+        --block-time 2000
+        --log-level info
+        --p2p-addr /ip4/0.0.0.0/tcp/30333
+        --boot-nodes /ip4/172.28.0.10/tcp/30333
+    ports:
+      - "9946:9944"
+      - "30335:30333"
+    volumes:
+      - ./testnet-data:/data
+    environment:
+      - RUST_LOG=info
+    networks:
+      polay-testnet:
+        ipv4_address: 172.28.0.12
+    depends_on:
+      validator-1:
+        condition: service_healthy
+
+  validator-4:
+    build: .
+    container_name: polay-validator-4
+    command: >
+      polay run
+        --genesis /data/genesis.json
+        --data-dir /data/validator-4/state
+        --rpc-addr 0.0.0.0:9944
+        --validator-key /data/keys/validator-4.key
+        --block-time 2000
+        --log-level info
+        --p2p-addr /ip4/0.0.0.0/tcp/30333
+        --boot-nodes /ip4/172.28.0.10/tcp/30333
+    ports:
+      - "9947:9944"
+      - "30336:30333"
+    volumes:
+      - ./testnet-data:/data
+    environment:
+      - RUST_LOG=info
+    networks:
+      polay-testnet:
+        ipv4_address: 172.28.0.13
+    depends_on:
+      validator-1:
+        condition: service_healthy
+
+  # --- Infrastructure ---
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: polay-postgres
+    environment:
+      POSTGRES_DB: polay_indexer
+      POSTGRES_USER: polay
+      POSTGRES_PASSWORD: polay
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - polay-testnet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polay -d polay_indexer"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  indexer:
+    build:
+      context: ./apps/indexer
+      dockerfile: Dockerfile
+    container_name: polay-indexer
+    environment:
+      - RPC_URL=http://validator-1:9944
+      - DATABASE_URL=postgres://polay:polay@postgres/polay_indexer
+      - RUST_LOG=info
+      - POLL_INTERVAL_MS=1000
+    networks:
+      - polay-testnet
+    depends_on:
+      validator-1:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  explorer-api:
+    build:
+      context: ./apps/explorer-api
+      dockerfile: Dockerfile
+    container_name: polay-explorer-api
+    environment:
+      - DATABASE_URL=postgres://polay:polay@postgres/polay_indexer
+      - LISTEN_ADDR=0.0.0.0:3001
+      - RUST_LOG=info
+    ports:
+      - "3001:3001"
+    networks:
+      - polay-testnet
+    depends_on:
+      postgres:
+        condition: service_healthy
+      indexer:
+        condition: service_started
+
+  faucet:
+    build:
+      context: ./apps/faucet
+      dockerfile: Dockerfile
+    container_name: polay-faucet
+    command: >
+      polay-faucet
+        --listen 0.0.0.0:8080
+        --rpc-url http://validator-1:9944
+        --secret-key ${FAUCET_SECRET_KEY:-0000000000000000000000000000000000000000000000000000000000000001}
+        --drip-amount 10000000
+        --cooldown-secs 3600
+        --max-drips-per-day 5
+    ports:
+      - "8080:8080"
+    networks:
+      - polay-testnet
+    depends_on:
+      validator-1:
+        condition: service_healthy
+
+  # --- Monitoring ---
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: polay-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - polay-testnet
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+
+  metrics-exporter:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.exporter
+    container_name: polay-metrics-exporter
+    environment:
+      - VALIDATOR_URLS=http://validator-1:9944,http://validator-2:9944,http://validator-3:9944,http://validator-4:9944
+      - LISTEN_ADDR=0.0.0.0:9100
+      - POLL_INTERVAL=5
+    ports:
+      - "9100:9100"
+    networks:
+      - polay-testnet
+    depends_on:
+      validator-1:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:10.4.1
+    container_name: polay-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=polay
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - polay-testnet
+    depends_on:
+      - prometheus
+
+networks:
+  polay-testnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  postgres-data:
+  prometheus-data:
+  grafana-data:

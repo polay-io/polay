@@ -35,3 +35,14 @@ postgres-data/
 
 # PDF build artifacts (keep the PDF itself)
 *.pyc
+
+# Testnet data
+/testnet-data
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+crash.log

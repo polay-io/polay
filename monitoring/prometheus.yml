@@ -1,0 +1,19 @@
+# Prometheus configuration for POLAY testnet monitoring.
+#
+# Scrapes the polay-metrics-exporter which translates RPC health data
+# into Prometheus metrics format.
+
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  - job_name: 'polay-metrics'
+    static_configs:
+      - targets: ['metrics-exporter:9100']
+        labels:
+          network: 'polay-testnet'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
