@@ -1,0 +1,80 @@
+groups:
+  - name: polay_node_alerts
+    rules:
+      # ---- Node Down ----
+      # Fires when any POLAY node is unreachable or reports down.
+      - alert: NodeDown
+        expr: polay_node_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "POLAY node {{ $labels.instance }} is down"
+          description: >-
+            Node {{ $labels.instance }} has been reporting polay_node_up == 0
+            for more than 1 minute.
+
+      # ---- High Block Latency ----
+      # Fires when no new blocks have been produced for 30 seconds.
+      - alert: HighBlockLatency
+        expr: time() - polay_last_block_timestamp > 30
+        for: 0s
+        labels:
+          severity: critical
+        annotations:
+          summary: "No new blocks for 30+ seconds on {{ $labels.instance }}"
+          description: >-
+            The last block timestamp is {{ $value | humanizeDuration }} behind
+            the current time. Block production may have stalled.
+
+      # ---- Mempool Backlog ----
+      # Fires when the mempool grows beyond 5000 pending transactions.
+      - alert: MempoolBacklog
+        expr: polay_mempool_size > 5000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mempool backlog on {{ $labels.instance }}: {{ $value }} txns"
+          description: >-
+            The mempool has had more than 5000 pending transactions for over
+            5 minutes. Block production may not be keeping up with demand.
+
+      # ---- Validator Down ----
+      # Fires when the active validator set drops below the minimum threshold.
+      - alert: ValidatorDown
+        expr: polay_active_validators < 3
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Active validators dropped to {{ $value }}"
+          description: >-
+            The number of active validators has been below 3 for over 2 minutes.
+            Consensus safety may be at risk.
+
+      # ---- Low Disk Space ----
+      # Fires when available disk space on a node drops below 5 GB.
+      - alert: LowDiskSpace
+        expr: node_filesystem_avail_bytes{mountpoint="/"} < 5e9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: >-
+            Available disk space on {{ $labels.instance }} ({{ $labels.mountpoint }})
+            is below 5 GB ({{ $value | humanize1024 }}B remaining).
+
+      # ---- High RPC Error Rate ----
+      # Fires when the RPC endpoint returns more than 10 errors per minute.
+      - alert: HighErrorRate
+        expr: rate(polay_rpc_errors_total[1m]) * 60 > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High RPC error rate on {{ $labels.instance }}"
+          description: >-
+            The RPC endpoint on {{ $labels.instance }} is returning
+            {{ $value | printf "%.1f" }} errors/min (threshold: 10/min).

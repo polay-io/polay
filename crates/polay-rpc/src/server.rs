@@ -27,7 +27,7 @@ use polay_types::{Address, Attestor, Hash, SignedTransaction, Transaction};
 
 use crate::error::RpcError;
 use crate::event_bus::{ChainEvent, EventBus};
-use crate::rate_limiter::SubmissionThrottle;
+use crate::rate_limiter::{IpRateLimiter, SubmissionThrottle};
 use crate::types::{
     AccountResponse, AssetBalanceResponse, AssetClassResponse, BlockResponse, ChainInfoResponse,
     EpochInfoResponse, EventResponse, GasEstimateResponse, HealthResponse, InflationRateResponse,
@@ -58,6 +58,8 @@ pub struct RpcServer {
     pub event_bus: Arc<EventBus>,
     /// Rate limiter for transaction submissions.
     pub submission_throttle: Arc<SubmissionThrottle>,
+    /// Per-IP rate limiter for all RPC requests.
+    pub ip_rate_limiter: Arc<IpRateLimiter>,
 }
 
 impl RpcServer {
@@ -75,6 +77,10 @@ impl RpcServer {
             chain_config,
             event_bus,
             submission_throttle: Arc::new(SubmissionThrottle::new(max_per_sec)),
+            ip_rate_limiter: Arc::new(IpRateLimiter::new(
+                200,  // 200 requests/sec per IP
+                50,   // 50 concurrent connections per IP
+            )),
         }
     }
 }
@@ -1215,6 +1221,9 @@ pub async fn start_rpc_server(
 
     let server = Server::builder()
         .set_http_middleware(middleware)
+        .max_request_body_size(2 * 1024 * 1024)  // 2 MB max request
+        .max_response_body_size(10 * 1024 * 1024) // 10 MB max response
+        .max_connections(512)                       // 512 concurrent connections
         .build(socket_addr)
         .await
         .map_err(|e| RpcError::ServerStartError(format!("failed to bind RPC server: {e}")))?;

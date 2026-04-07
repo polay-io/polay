@@ -37,6 +37,9 @@ pub struct MempoolConfig {
     /// Maximum allowed nonce gap per sender. Transactions with a nonce too
     /// far ahead of the sender's lowest pending nonce are rejected.
     pub max_nonce_gap: u64,
+    /// Maximum age of a transaction in seconds. Transactions older than this
+    /// are evicted during cleanup sweeps. 0 means no TTL.
+    pub tx_ttl_secs: u64,
 }
 
 impl Default for MempoolConfig {
@@ -48,6 +51,7 @@ impl Default for MempoolConfig {
             verify_signature: true,
             chain_id: String::new(),
             max_nonce_gap: DEFAULT_MAX_NONCE_GAP,
+            tx_ttl_secs: 300, // 5 minutes
         }
     }
 }
@@ -287,6 +291,41 @@ impl Mempool {
     /// Return the current number of transactions in the pool.
     pub fn size(&self) -> usize {
         self.pending.len()
+    }
+
+    /// Evict transactions older than `tx_ttl_secs`.
+    ///
+    /// Returns the number of transactions evicted. Call this periodically
+    /// (e.g. once per block production cycle) to keep the mempool fresh.
+    pub fn evict_expired(&self) -> usize {
+        if self.config.tx_ttl_secs == 0 {
+            return 0;
+        }
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        let cutoff = now.saturating_sub(self.config.tx_ttl_secs);
+        let mut expired: Vec<Hash> = Vec::new();
+
+        for entry in self.pending.iter() {
+            if entry.value().transaction.timestamp < cutoff {
+                expired.push(*entry.key());
+            }
+        }
+
+        let count = expired.len();
+        for tx_hash in &expired {
+            self.remove(tx_hash);
+        }
+
+        if count > 0 {
+            debug!(evicted = count, ttl = self.config.tx_ttl_secs, "evicted expired transactions");
+        }
+
+        count
     }
 
     /// Remove all transactions from the pool.

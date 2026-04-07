@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>POLAY Testnet Faucet</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-card: #1a1a28;
+      --border: #2a2a3a;
+      --text: #e8e8f0;
+      --text-muted: #9090a8;
+      --accent: #8b5cf6;
+      --accent-hover: #a78bfa;
+      --success: #22c55e;
+      --error: #ef4444;
+      --mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .faucet-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 520px;
+      margin: 2rem;
+    }
+
+    .faucet-title {
+      text-align: center;
+      margin-bottom: 0.25rem;
+      font-size: 1.5rem;
+    }
+
+    .faucet-title span {
+      color: var(--accent);
+    }
+
+    .faucet-subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-bottom: 2rem;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 0.7rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-primary);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .form-input:focus {
+      border-color: var(--accent);
+    }
+
+    .form-hint {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.3rem;
+    }
+
+    .drip-btn {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      margin-top: 0.5rem;
+    }
+
+    .drip-btn:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .drip-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 1.25rem;
+      padding: 0.85rem 1rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      display: none;
+      word-break: break-all;
+    }
+
+    .status.visible {
+      display: block;
+    }
+
+    .status.success {
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: var(--success);
+    }
+
+    .status.error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: var(--error);
+    }
+
+    .status .tx-hash {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      margin-top: 0.4rem;
+      display: block;
+    }
+
+    .cooldown {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 0.75rem;
+      display: none;
+    }
+
+    .cooldown.visible {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="faucet-container">
+    <h1 class="faucet-title"><span>POLAY</span> Testnet Faucet</h1>
+    <p class="faucet-subtitle">Get test POL tokens for development</p>
+
+    <div class="form-group">
+      <label class="form-label" for="address">Wallet Address</label>
+      <input
+        class="form-input"
+        id="address"
+        type="text"
+        placeholder="Enter your 64-character hex address..."
+        maxlength="64"
+        spellcheck="false"
+        autocomplete="off"
+      />
+      <p class="form-hint">64 hex characters (0-9, a-f)</p>
+    </div>
+
+    <button class="drip-btn" id="drip-btn" onclick="requestDrip()">
+      Request POL
+    </button>
+
+    <div class="status" id="status"></div>
+    <div class="cooldown" id="cooldown"></div>
+  </div>
+
+  <script>
+    const FAUCET_URL = "http://localhost:8080/drip";
+    const COOLDOWN_SECONDS = 60;
+
+    let cooldownTimer = null;
+    let cooldownRemaining = 0;
+
+    function isValidAddress(addr) {
+      return /^[0-9a-fA-F]{64}$/.test(addr);
+    }
+
+    function showStatus(message, type, txHash) {
+      const el = document.getElementById("status");
+      el.className = "status visible " + type;
+      let html = message;
+      if (txHash) {
+        html += '<span class="tx-hash">TX: ' + txHash + "</span>";
+      }
+      el.innerHTML = html;
+    }
+
+    function hideStatus() {
+      const el = document.getElementById("status");
+      el.className = "status";
+    }
+
+    function startCooldown() {
+      const btn = document.getElementById("drip-btn");
+      const cdEl = document.getElementById("cooldown");
+      cooldownRemaining = COOLDOWN_SECONDS;
+      btn.disabled = true;
+      cdEl.className = "cooldown visible";
+
+      function tick() {
+        if (cooldownRemaining <= 0) {
+          btn.disabled = false;
+          cdEl.className = "cooldown";
+          cooldownTimer = null;
+          return;
+        }
+        cdEl.textContent = "Next request available in " + cooldownRemaining + "s";
+        cooldownRemaining--;
+        cooldownTimer = setTimeout(tick, 1000);
+      }
+      tick();
+    }
+
+    async function requestDrip() {
+      const address = document.getElementById("address").value.trim();
+
+      if (!isValidAddress(address)) {
+        showStatus("Invalid address. Please enter a 64-character hex string.", "error");
+        return;
+      }
+
+      const btn = document.getElementById("drip-btn");
+      btn.disabled = true;
+      btn.textContent = "Requesting...";
+      hideStatus();
+
+      try {
+        const resp = await fetch(FAUCET_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: address }),
+        });
+
+        const data = await resp.json();
+
+        if (resp.ok) {
+          showStatus("Tokens sent successfully!", "success", data.tx_hash || null);
+          startCooldown();
+        } else {
+          showStatus(data.error || "Request failed. Try again later.", "error");
+          btn.disabled = false;
+        }
+      } catch (err) {
+        showStatus("Network error: could not reach faucet server.", "error");
+        btn.disabled = false;
+      } finally {
+        btn.textContent = "Request POL";
+      }
+    }
+
+    // Allow Enter key to submit
+    document.getElementById("address").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        requestDrip();
+      }
+    });
+  </script>
+</body>
+</html>
