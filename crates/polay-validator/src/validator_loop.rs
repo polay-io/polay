@@ -5,8 +5,7 @@ use tracing::{debug, error, info, warn};
 
 use polay_config::ChainConfig;
 use polay_consensus::{
-    ConsensusAction, ConsensusStateMachine, Proposal, ValidatorSet,
-    ValidatorWeight, Vote, VoteType,
+    ConsensusAction, ConsensusStateMachine, Proposal, ValidatorSet, ValidatorWeight, Vote, VoteType,
 };
 use polay_crypto::PolayKeypair;
 use polay_execution::Executor;
@@ -319,17 +318,17 @@ impl ValidatorNode {
                     self.broadcast_vote(&prevote).await;
 
                     // Feed our own prevote into the state machine.
-                    let prevote_action = self
-                        .consensus
-                        .as_mut()
-                        .and_then(|c| match c.on_prevote(prevote) {
-                            Ok(Some(action)) => Some(action),
-                            Ok(None) => None,
-                            Err(e) => {
-                                debug!(error = %e, "own prevote processing note");
-                                None
-                            }
-                        });
+                    let prevote_action =
+                        self.consensus
+                            .as_mut()
+                            .and_then(|c| match c.on_prevote(prevote) {
+                                Ok(Some(action)) => Some(action),
+                                Ok(None) => None,
+                                Err(e) => {
+                                    debug!(error = %e, "own prevote processing note");
+                                    None
+                                }
+                            });
 
                     if let Some(action) = prevote_action {
                         self.handle_consensus_action(action).await;
@@ -351,10 +350,7 @@ impl ValidatorNode {
 
     // -- Received transaction handler --------------------------------------
 
-    async fn on_received_transaction(
-        &self,
-        tx: polay_types::transaction::SignedTransaction,
-    ) {
+    async fn on_received_transaction(&self, tx: polay_types::transaction::SignedTransaction) {
         debug!(hash = %tx.tx_hash, "received transaction from network");
         if let Err(e) = self.mempool.insert(tx.clone()) {
             debug!(error = %e, "failed to insert received tx into mempool");
@@ -385,10 +381,7 @@ impl ValidatorNode {
         // Without this check, a malicious proposer could get invalid blocks
         // committed by the network.
         let expected_height = self.chain_state.get_height().unwrap_or(0) + 1;
-        let expected_parent_hash = self
-            .chain_state
-            .get_latest_hash()
-            .unwrap_or(Hash::ZERO);
+        let expected_parent_hash = self.chain_state.get_latest_hash().unwrap_or(Hash::ZERO);
 
         if let Err(e) = self.block_validator.validate_proposed_block(
             &block,
@@ -517,17 +510,17 @@ impl ValidatorNode {
 
                 // Feed our own precommit into the state machine, then
                 // handle a possible commit action.
-                let commit_action = self
-                    .consensus
-                    .as_mut()
-                    .and_then(|c| match c.on_precommit(vote) {
-                        Ok(Some(action)) => Some(action),
-                        Ok(None) => None,
-                        Err(e) => {
-                            debug!(error = %e, "own precommit processing note");
-                            None
-                        }
-                    });
+                let commit_action =
+                    self.consensus
+                        .as_mut()
+                        .and_then(|c| match c.on_precommit(vote) {
+                            Ok(Some(action)) => Some(action),
+                            Ok(None) => None,
+                            Err(e) => {
+                                debug!(error = %e, "own precommit processing note");
+                                None
+                            }
+                        });
 
                 if let Some(ConsensusAction::CommitBlock {
                     height,
@@ -546,7 +539,10 @@ impl ValidatorNode {
                 self.handle_commit(height, block_hash, &proof).await;
             }
             ConsensusAction::ScheduleTimeout { step, duration_ms } => {
-                debug!(?step, duration_ms, "consensus timeout scheduled (ignored in timer-driven mode)");
+                debug!(
+                    ?step,
+                    duration_ms, "consensus timeout scheduled (ignored in timer-driven mode)"
+                );
             }
         }
     }
@@ -574,15 +570,11 @@ impl ValidatorNode {
             // Even for our own blocks, verify structural integrity for
             // consistency (light validation only -- we produced this block
             // ourselves so full re-execution is redundant).
-            let expected_parent = self
-                .chain_state
-                .get_latest_hash()
-                .unwrap_or(Hash::ZERO);
-            if let Err(e) = self.block_validator.validate_block_light(
-                &block,
-                height,
-                &expected_parent,
-            ) {
+            let expected_parent = self.chain_state.get_latest_hash().unwrap_or(Hash::ZERO);
+            if let Err(e) =
+                self.block_validator
+                    .validate_block_light(&block, height, &expected_parent)
+            {
                 error!(
                     error = %e,
                     height,
@@ -652,11 +644,7 @@ impl ValidatorNode {
             &self.chain_config.chain_id,
         )?;
 
-        let round = self
-            .consensus
-            .as_ref()
-            .map(|c| c.round)
-            .unwrap_or(0);
+        let round = self.consensus.as_ref().map(|c| c.round).unwrap_or(0);
 
         let block_hash = *block.hash();
 
@@ -782,9 +770,7 @@ impl ValidatorNode {
                 // Publish epoch transition event to the event bus.
                 if let Some(ref event_bus) = self.event_bus {
                     // Extract info from the epoch_transition event.
-                    if let Some(evt) = epoch_events
-                        .iter()
-                        .find(|e| e.action == "epoch_transition")
+                    if let Some(evt) = epoch_events.iter().find(|e| e.action == "epoch_transition")
                     {
                         let total_staked: u64 = evt
                             .get_attribute("total_staked")
@@ -927,13 +913,7 @@ mod tests {
         let keypair = PolayKeypair::generate();
         let config = genesis.chain_config.clone();
 
-        let node = ValidatorNode::new(
-            Arc::clone(&store),
-            &genesis,
-            keypair,
-            config,
-        )
-        .unwrap();
+        let node = ValidatorNode::new(Arc::clone(&store), &genesis, keypair, config).unwrap();
 
         node.produce_and_apply_block().await.unwrap();
         let hash_1 = node.chain_state().get_latest_hash().unwrap();

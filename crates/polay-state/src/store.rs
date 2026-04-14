@@ -35,7 +35,10 @@ pub trait StateStore: Send + Sync {
 // ---------------------------------------------------------------------------
 
 /// Deserialize a Borsh-encoded value from the store.
-pub fn store_get<T: BorshDeserialize>(store: &dyn StateStore, key: &[u8]) -> StateResult<Option<T>> {
+pub fn store_get<T: BorshDeserialize>(
+    store: &dyn StateStore,
+    key: &[u8],
+) -> StateResult<Option<T>> {
     match store.get_raw(key)? {
         Some(bytes) => {
             let val = T::try_from_slice(&bytes).map_err(|e| {
@@ -52,13 +55,13 @@ pub fn store_get<T: BorshDeserialize>(store: &dyn StateStore, key: &[u8]) -> Sta
 }
 
 /// Borsh-encode a value and store it.
-pub fn store_put<T: BorshSerialize>(store: &dyn StateStore, key: &[u8], value: &T) -> StateResult<()> {
+pub fn store_put<T: BorshSerialize>(
+    store: &dyn StateStore,
+    key: &[u8],
+    value: &T,
+) -> StateResult<()> {
     let bytes = borsh::to_vec(value).map_err(|e| {
-        StateError::SerializationError(format!(
-            "borsh encode for key {}: {}",
-            hex::encode(key),
-            e,
-        ))
+        StateError::SerializationError(format!("borsh encode for key {}: {}", hex::encode(key), e,))
     })?;
     store.put_raw(key, &bytes)
 }
@@ -77,8 +80,8 @@ impl RocksDbStore {
     pub fn new(path: &str) -> StateResult<Self> {
         let mut opts = rocksdb::Options::default();
         opts.create_if_missing(true);
-        let db = rocksdb::DB::open(&opts, path)
-            .map_err(|e| StateError::StorageError(e.to_string()))?;
+        let db =
+            rocksdb::DB::open(&opts, path).map_err(|e| StateError::StorageError(e.to_string()))?;
         Ok(Self { db })
     }
 }

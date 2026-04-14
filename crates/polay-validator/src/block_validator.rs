@@ -284,12 +284,10 @@ impl BlockValidator {
             }
 
             // Verify Ed25519 signature.
-            let tx_signing_payload =
-                polay_crypto::build_tx_signing_payload(&tx.transaction).map_err(|e| {
-                    BlockValidationError::InvalidTransaction {
-                        index: i,
-                        reason: format!("failed to build signing payload: {e}"),
-                    }
+            let tx_signing_payload = polay_crypto::build_tx_signing_payload(&tx.transaction)
+                .map_err(|e| BlockValidationError::InvalidTransaction {
+                    index: i,
+                    reason: format!("failed to build signing payload: {e}"),
                 })?;
             if let Err(e) = pubkey.verify(&tx_signing_payload, &tx.signature) {
                 return Err(BlockValidationError::InvalidTransaction {
@@ -308,8 +306,12 @@ impl BlockValidator {
     ) -> Result<(), BlockValidationError> {
         // Execute all transactions to verify the proposed state root.
         let executor = Executor::new(self.chain_config.clone());
-        let _receipts =
-            executor.execute_block(&block.transactions, store, block.header.height, &block.header.proposer);
+        let _receipts = executor.execute_block(
+            &block.transactions,
+            store,
+            block.header.height,
+            &block.header.proposer,
+        );
 
         // Compute the resulting state root.
         let commitment = compute_state_root(store)
@@ -438,9 +440,12 @@ mod tests {
         let state_root = compute_state_root(&store).unwrap().root;
         let block = build_valid_block(1, Hash::ZERO, state_root, vec![]);
 
-        let result =
-            validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
-        assert!(result.is_ok(), "valid empty block should pass: {:?}", result);
+        let result = validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
+        assert!(
+            result.is_ok(),
+            "valid empty block should pass: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -471,13 +476,12 @@ mod tests {
         seed_account(&fresh_store, kp.address(), 10_000_000);
 
         let validator = BlockValidator::new(config);
-        let result = validator.validate_proposed_block(
-            &block,
-            1,
-            &Hash::ZERO,
-            &fresh_store,
+        let result = validator.validate_proposed_block(&block, 1, &Hash::ZERO, &fresh_store);
+        assert!(
+            result.is_ok(),
+            "valid block with txs should pass: {:?}",
+            result
         );
-        assert!(result.is_ok(), "valid block with txs should pass: {:?}", result);
     }
 
     // -- Block hash tests ----------------------------------------------------
@@ -493,8 +497,7 @@ mod tests {
         // Tamper with the block hash.
         block.header.hash = Hash::new([0xFF; 32]);
 
-        let result =
-            validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
+        let result = validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
@@ -515,8 +518,7 @@ mod tests {
         let block = build_valid_block(1, Hash::new([0xAA; 32]), state_root, vec![]);
 
         // We expect parent_hash = Hash::ZERO, but block has [0xAA; 32].
-        let result =
-            validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
+        let result = validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
@@ -540,8 +542,7 @@ mod tests {
         block.header.transactions_root = Hash::new([0xDD; 32]);
         block.header.hash = hash_block_header(&block.header).unwrap();
 
-        let result =
-            validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
+        let result = validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
@@ -563,8 +564,7 @@ mod tests {
         let state_root = compute_state_root(&store).unwrap().root;
         let block = build_valid_block(1, Hash::ZERO, state_root, txs);
 
-        let result =
-            validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
+        let result = validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
@@ -592,12 +592,14 @@ mod tests {
         // from the tampered hash, so the merkle root check will pass).
         let block = build_valid_block(1, Hash::ZERO, state_root, txs);
 
-        let result =
-            validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
+        let result = validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
-            matches!(err, BlockValidationError::InvalidTransaction { index: 0, .. }),
+            matches!(
+                err,
+                BlockValidationError::InvalidTransaction { index: 0, .. }
+            ),
             "expected InvalidTransaction at index 0, got: {err}"
         );
     }
@@ -614,12 +616,17 @@ mod tests {
         let block = build_valid_block(5, Hash::ZERO, state_root, vec![]);
 
         // We expect height 1, but block says 5.
-        let result =
-            validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
+        let result = validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
-            matches!(err, BlockValidationError::HeightMismatch { expected: 1, got: 5 }),
+            matches!(
+                err,
+                BlockValidationError::HeightMismatch {
+                    expected: 1,
+                    got: 5
+                }
+            ),
             "expected HeightMismatch, got: {err}"
         );
     }
@@ -638,8 +645,7 @@ mod tests {
         block.header.chain_id = "evil-chain-1".to_string();
         block.header.hash = hash_block_header(&block.header).unwrap();
 
-        let result =
-            validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
+        let result = validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
@@ -665,12 +671,14 @@ mod tests {
         ];
         let block = build_valid_block(1, Hash::ZERO, state_root, txs);
 
-        let result =
-            validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
+        let result = validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
-            matches!(err, BlockValidationError::TooManyTransactions { count: 3, max: 2 }),
+            matches!(
+                err,
+                BlockValidationError::TooManyTransactions { count: 3, max: 2 }
+            ),
             "expected TooManyTransactions, got: {err}"
         );
     }
@@ -687,8 +695,7 @@ mod tests {
         let mut block = build_valid_block(1, Hash::ZERO, state_root, vec![]);
         block.header.hash = Hash::new([0xFF; 32]);
 
-        let result =
-            validator.validate_block_light(&block, 1, &Hash::ZERO);
+        let result = validator.validate_block_light(&block, 1, &Hash::ZERO);
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
@@ -705,8 +712,7 @@ mod tests {
 
         let block = build_valid_block(1, Hash::new([0xAA; 32]), state_root, vec![]);
 
-        let result =
-            validator.validate_block_light(&block, 1, &Hash::ZERO);
+        let result = validator.validate_block_light(&block, 1, &Hash::ZERO);
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
@@ -723,8 +729,7 @@ mod tests {
 
         let block = build_valid_block(1, Hash::ZERO, state_root, vec![]);
 
-        let result =
-            validator.validate_block_light(&block, 1, &Hash::ZERO);
+        let result = validator.validate_block_light(&block, 1, &Hash::ZERO);
         assert!(result.is_ok(), "light validation should pass: {:?}", result);
     }
 
@@ -739,8 +744,7 @@ mod tests {
         // Build a block with a bogus state root but otherwise correct.
         let block = build_valid_block(1, Hash::ZERO, Hash::new([0xCC; 32]), vec![]);
 
-        let result =
-            validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
+        let result = validator.validate_proposed_block(&block, 1, &Hash::ZERO, &store);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(

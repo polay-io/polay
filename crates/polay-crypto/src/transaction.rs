@@ -108,7 +108,7 @@ mod tests {
 
         let result = verify_transaction_with_key(&signed, &kp.public_key());
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), true);
+        assert!(result.unwrap());
     }
 
     #[test]

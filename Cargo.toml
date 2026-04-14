@@ -93,3 +93,10 @@ polay-staking = { path = "crates/polay-staking" }
 polay-attestation = { path = "crates/polay-attestation" }
 polay-market = { path = "crates/polay-market" }
 polay-identity = { path = "crates/polay-identity" }
+
+[workspace.lints.clippy]
+too_many_arguments = "allow"
+large_enum_variant = "allow"
+field_reassign_with_default = "allow"
+type_complexity = "allow"
+doc_overindented_list_items = "allow"

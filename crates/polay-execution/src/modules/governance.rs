@@ -3,8 +3,8 @@
 use polay_config::ChainConfig;
 use polay_state::{StateStore, StateView, StateWriter};
 use polay_types::{
-    Address, Event, Hash,
     governance::{Proposal, ProposalAction, ProposalStatus, Vote, VoteOption},
+    Address, Event, Hash,
 };
 use sha2::{Digest, Sha256};
 use tracing::debug;
@@ -53,12 +53,14 @@ pub fn execute_submit_proposal(
             available: account.balance,
         });
     }
-    account.balance = account.balance
-        .checked_sub(deposit)
-        .ok_or(ExecutionError::InsufficientBalance {
-            required: deposit,
-            available: account.balance,
-        })?;
+    account.balance =
+        account
+            .balance
+            .checked_sub(deposit)
+            .ok_or(ExecutionError::InsufficientBalance {
+                required: deposit,
+                available: account.balance,
+            })?;
     writer.set_account(&account)?;
 
     // Generate proposal ID = sha256(signer || title || current_height).
@@ -151,10 +153,7 @@ pub fn execute_vote_proposal(
 
     // Calculate voter's stake weight.
     // Check if they are a validator (self-stake).
-    let validator_stake = view
-        .get_validator(signer)?
-        .map(|v| v.stake)
-        .unwrap_or(0);
+    let validator_stake = view.get_validator(signer)?.map(|v| v.stake).unwrap_or(0);
 
     // For a simple implementation, we use the validator's total stake
     // (which includes delegations) if they are a validator,
@@ -205,7 +204,8 @@ pub fn execute_vote_proposal(
                 proposal.no_votes = proposal.no_votes.saturating_sub(existing_vote.weight);
             }
             VoteOption::Abstain => {
-                proposal.abstain_votes = proposal.abstain_votes.saturating_sub(existing_vote.weight);
+                proposal.abstain_votes =
+                    proposal.abstain_votes.saturating_sub(existing_vote.weight);
             }
         }
     }
@@ -224,7 +224,9 @@ pub fn execute_vote_proposal(
     match option {
         VoteOption::Yes => proposal.yes_votes = proposal.yes_votes.saturating_add(weight),
         VoteOption::No => proposal.no_votes = proposal.no_votes.saturating_add(weight),
-        VoteOption::Abstain => proposal.abstain_votes = proposal.abstain_votes.saturating_add(weight),
+        VoteOption::Abstain => {
+            proposal.abstain_votes = proposal.abstain_votes.saturating_add(weight)
+        }
     }
     writer.set_proposal(&proposal)?;
 
@@ -294,7 +296,8 @@ pub fn execute_execute_proposal(
     let quorum_met = if total_staked == 0 {
         false
     } else {
-        (total_votes as u128) * 10_000 >= (config.governance_quorum_bps as u128) * (total_staked as u128)
+        (total_votes as u128) * 10_000
+            >= (config.governance_quorum_bps as u128) * (total_staked as u128)
     };
 
     // Check pass threshold: yes / (yes + no) >= pass_threshold_bps / 10_000
@@ -302,7 +305,8 @@ pub fn execute_execute_proposal(
     let threshold_met = if yes_and_no == 0 {
         false
     } else {
-        (proposal.yes_votes as u128) * 10_000 >= (config.pass_threshold_bps as u128) * (yes_and_no as u128)
+        (proposal.yes_votes as u128) * 10_000
+            >= (config.pass_threshold_bps as u128) * (yes_and_no as u128)
     };
 
     if quorum_met && threshold_met {
@@ -319,9 +323,7 @@ pub fn execute_execute_proposal(
         // Return full deposit to proposer.
         let mut proposer_account = view
             .get_account(&proposal.proposer)?
-            .unwrap_or_else(|| {
-                polay_types::AccountState::new(proposal.proposer, current_height)
-            });
+            .unwrap_or_else(|| polay_types::AccountState::new(proposal.proposer, current_height));
         proposer_account.credit(proposal.deposit);
         writer.set_account(&proposer_account)?;
 
@@ -337,11 +339,9 @@ pub fn execute_execute_proposal(
         // Burn 50% of deposit, return the rest to proposer.
         let return_amount = proposal.deposit / 2;
         if return_amount > 0 {
-            let mut proposer_account = view
-                .get_account(&proposal.proposer)?
-                .unwrap_or_else(|| {
-                    polay_types::AccountState::new(proposal.proposer, current_height)
-                });
+            let mut proposer_account = view.get_account(&proposal.proposer)?.unwrap_or_else(|| {
+                polay_types::AccountState::new(proposal.proposer, current_height)
+            });
             proposer_account.credit(return_amount);
             writer.set_account(&proposer_account)?;
         }
@@ -383,7 +383,10 @@ fn execute_proposal_action(
     writer: &StateWriter<'_>,
 ) -> Result<(), ExecutionError> {
     match action {
-        ProposalAction::ParameterChange { parameter, new_value } => {
+        ProposalAction::ParameterChange {
+            parameter,
+            new_value,
+        } => {
             // For MVP, log the change. Actual config hot-reload is TODO.
             debug!(
                 parameter = %parameter,
@@ -423,7 +426,8 @@ fn execute_proposal_action(
                 .get_validator(address)?
                 .ok_or(ExecutionError::ValidatorNotFound)?;
 
-            let slash_amount = ((validator.stake as u128) * (*fraction_bps as u128) / 10_000) as u64;
+            let slash_amount =
+                ((validator.stake as u128) * (*fraction_bps as u128) / 10_000) as u64;
             validator.stake = validator.stake.saturating_sub(slash_amount);
             writer.set_validator(&validator)?;
 
@@ -624,14 +628,8 @@ mod tests {
         )
         .unwrap();
 
-        let events = execute_vote_proposal(
-            &voter,
-            &proposal_id,
-            VoteOption::Yes,
-            &store,
-            105,
-        )
-        .unwrap();
+        let events =
+            execute_vote_proposal(&voter, &proposal_id, VoteOption::Yes, &store, 105).unwrap();
 
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].action, "vote_cast");
@@ -670,13 +668,7 @@ mod tests {
         .unwrap();
 
         // Vote after the voting period ends (200 + 1).
-        let result = execute_vote_proposal(
-            &voter,
-            &proposal_id,
-            VoteOption::Yes,
-            &store,
-            201,
-        );
+        let result = execute_vote_proposal(&voter, &proposal_id, VoteOption::Yes, &store, 201);
 
         assert!(matches!(result, Err(ExecutionError::VotingPeriodEnded)));
     }
@@ -705,13 +697,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = execute_vote_proposal(
-            &voter,
-            &proposal_id,
-            VoteOption::Yes,
-            &store,
-            105,
-        );
+        let result = execute_vote_proposal(&voter, &proposal_id, VoteOption::Yes, &store, 105);
 
         assert!(matches!(result, Err(ExecutionError::NoStakeToVote)));
     }
@@ -786,14 +772,8 @@ mod tests {
         execute_vote_proposal(&voter, &proposal_id, VoteOption::Yes, &store, 105).unwrap();
 
         // Execute after voting period ends.
-        let events = execute_execute_proposal(
-            &proposer,
-            &proposal_id,
-            &store,
-            &config,
-            201,
-        )
-        .unwrap();
+        let events =
+            execute_execute_proposal(&proposer, &proposal_id, &store, &config, 201).unwrap();
 
         // Should have passed and executed events.
         assert!(events.iter().any(|e| e.action == "proposal_passed"));
@@ -838,14 +818,8 @@ mod tests {
         // Only voter with 10K votes (10% of 100K, below 33.33% quorum).
         execute_vote_proposal(&voter, &proposal_id, VoteOption::Yes, &store, 105).unwrap();
 
-        let events = execute_execute_proposal(
-            &proposer,
-            &proposal_id,
-            &store,
-            &config,
-            201,
-        )
-        .unwrap();
+        let events =
+            execute_execute_proposal(&proposer, &proposal_id, &store, &config, 201).unwrap();
 
         assert!(events.iter().any(|e| e.action == "proposal_rejected"));
 
@@ -888,14 +862,8 @@ mod tests {
         execute_vote_proposal(&voter_yes, &proposal_id, VoteOption::Yes, &store, 105).unwrap();
         execute_vote_proposal(&voter_no, &proposal_id, VoteOption::No, &store, 106).unwrap();
 
-        let events = execute_execute_proposal(
-            &proposer,
-            &proposal_id,
-            &store,
-            &config,
-            201,
-        )
-        .unwrap();
+        let events =
+            execute_execute_proposal(&proposer, &proposal_id, &store, &config, 201).unwrap();
 
         assert!(events.iter().any(|e| e.action == "proposal_rejected"));
 
@@ -968,14 +936,7 @@ mod tests {
 
         execute_vote_proposal(&voter, &proposal_id, VoteOption::Yes, &store, 105).unwrap();
 
-        execute_execute_proposal(
-            &proposer,
-            &proposal_id,
-            &store,
-            &config,
-            201,
-        )
-        .unwrap();
+        execute_execute_proposal(&proposer, &proposal_id, &store, &config, 201).unwrap();
 
         // Recipient should have received 50_000.
         let view = StateView::new(&store);
@@ -1009,14 +970,8 @@ mod tests {
 
         execute_vote_proposal(&voter, &proposal_id, VoteOption::Yes, &store, 105).unwrap();
 
-        let events = execute_execute_proposal(
-            &proposer,
-            &proposal_id,
-            &store,
-            &config,
-            201,
-        )
-        .unwrap();
+        let events =
+            execute_execute_proposal(&proposer, &proposal_id, &store, &config, 201).unwrap();
 
         // Should succeed (parameter change is a no-op in MVP).
         assert!(events.iter().any(|e| e.action == "proposal_executed"));

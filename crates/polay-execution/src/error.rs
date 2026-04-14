@@ -19,7 +19,11 @@ pub enum ExecutionError {
     AssetClassAlreadyExists,
 
     #[error("max supply exceeded: max {max}, current {current}, requested {requested}")]
-    MaxSupplyExceeded { max: u64, current: u64, requested: u64 },
+    MaxSupplyExceeded {
+        max: u64,
+        current: u64,
+        requested: u64,
+    },
 
     #[error("listing not found")]
     ListingNotFound,
@@ -133,7 +137,6 @@ pub enum ExecutionError {
     InvalidInput(String),
 
     // -- Session key errors ---------------------------------------------------
-
     #[error("session not found")]
     SessionNotFound,
 
@@ -156,7 +159,6 @@ pub enum ExecutionError {
     InvalidSessionPubkey(String),
 
     // -- Gas sponsorship errors -------------------------------------------------
-
     #[error("sponsor cannot be the signer")]
     SponsorIsSigner,
 
@@ -167,7 +169,6 @@ pub enum ExecutionError {
     SponsorAccountNotFound(String),
 
     // -- Rental errors ---------------------------------------------------------
-
     #[error("rental not found")]
     RentalNotFound,
 
@@ -190,7 +191,6 @@ pub enum ExecutionError {
     InvalidRentalDuration { reason: String },
 
     // -- Guild errors ----------------------------------------------------------
-
     #[error("guild not found")]
     GuildNotFound,
 
@@ -219,7 +219,6 @@ pub enum ExecutionError {
     CannotKickLeader,
 
     // -- Tournament errors ----------------------------------------------------
-
     #[error("tournament not found")]
     TournamentNotFound,
 

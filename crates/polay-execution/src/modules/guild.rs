@@ -59,7 +59,10 @@ pub fn execute_create_guild(
         "guild created"
     );
 
-    Ok((guild_id, vec![Event::guild_created(signer, &guild_id, name)]))
+    Ok((
+        guild_id,
+        vec![Event::guild_created(signer, &guild_id, name)],
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -202,12 +205,14 @@ pub fn execute_guild_deposit(
     }
 
     // Deduct from signer and add to treasury.
-    account.balance = account.balance
-        .checked_sub(amount)
-        .ok_or(ExecutionError::InsufficientBalance {
-            required: amount,
-            available: account.balance,
-        })?;
+    account.balance =
+        account
+            .balance
+            .checked_sub(amount)
+            .ok_or(ExecutionError::InsufficientBalance {
+                required: amount,
+                available: account.balance,
+            })?;
     guild.treasury_balance += amount;
 
     writer.set_account(&account)?;
@@ -378,7 +383,8 @@ pub fn execute_guild_kick(
     }
 
     // Officers can only kick Members (not other Officers).
-    if signer_membership.role == GuildRole::Officer && target_membership.role == GuildRole::Officer {
+    if signer_membership.role == GuildRole::Officer && target_membership.role == GuildRole::Officer
+    {
         return Err(ExecutionError::NotAuthorized);
     }
 
@@ -724,8 +730,7 @@ mod tests {
         let leader = test_addr(1);
         let member = test_addr(2);
 
-        let events =
-            execute_guild_promote(&leader, &guild_id, &member, "officer", &store).unwrap();
+        let events = execute_guild_promote(&leader, &guild_id, &member, "officer", &store).unwrap();
 
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].action, "guild_member_promoted");

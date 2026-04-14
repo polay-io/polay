@@ -6,7 +6,16 @@ use crate::hash::Hash;
 
 /// Lifecycle status of a marketplace listing.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
 )]
 pub enum ListingStatus {
     /// The listing is live and available for purchase.
@@ -19,9 +28,7 @@ pub enum ListingStatus {
 
 /// A marketplace listing offering a quantity of an asset for sale at a
 /// fixed per-unit price.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Listing {
     /// Unique listing identifier (content-addressed).
     pub id: Hash,
@@ -125,7 +132,11 @@ mod tests {
 
     #[test]
     fn listing_status_variants() {
-        for status in [ListingStatus::Active, ListingStatus::Sold, ListingStatus::Cancelled] {
+        for status in [
+            ListingStatus::Active,
+            ListingStatus::Sold,
+            ListingStatus::Cancelled,
+        ] {
             let json = serde_json::to_string(&status).unwrap();
             let parsed: ListingStatus = serde_json::from_str(&json).unwrap();
             assert_eq!(status, parsed);

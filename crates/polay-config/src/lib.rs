@@ -146,7 +146,6 @@ pub struct ChainConfig {
     pub parallel_execution: bool,
 
     // -- Economics settings --------------------------------------------------
-
     /// Fee distribution configuration (50% burn, 20% treasury, 30% validators).
     #[serde(default)]
     pub fee_distribution: FeeDistribution,
@@ -160,7 +159,6 @@ pub struct ChainConfig {
     pub treasury_address: String,
 
     // -- Security settings ---------------------------------------------------
-
     /// Maximum age of a transaction in seconds before it is rejected.
     #[serde(default = "default_tx_max_age_seconds")]
     pub tx_max_age_seconds: u64,
@@ -648,74 +646,102 @@ mod tests {
 
     #[test]
     fn validation_passes_for_all_profiles() {
-        ChainConfig::devnet().validate().expect("devnet should validate");
-        ChainConfig::testnet().validate().expect("testnet should validate");
-        ChainConfig::mainnet().validate().expect("mainnet should validate");
+        ChainConfig::devnet()
+            .validate()
+            .expect("devnet should validate");
+        ChainConfig::testnet()
+            .validate()
+            .expect("testnet should validate");
+        ChainConfig::mainnet()
+            .validate()
+            .expect("mainnet should validate");
     }
 
     #[test]
     fn validation_catches_empty_chain_id() {
-        let mut cfg = ChainConfig::default();
-        cfg.chain_id = String::new();
+        let cfg = ChainConfig {
+            chain_id: String::new(),
+            ..ChainConfig::default()
+        };
         let errs = cfg.validate().unwrap_err();
         assert!(errs.iter().any(|e| e.contains("chain_id")));
     }
 
     #[test]
     fn validation_catches_zero_epoch_length() {
-        let mut cfg = ChainConfig::default();
-        cfg.epoch_length = 0;
+        let cfg = ChainConfig {
+            epoch_length: 0,
+            ..ChainConfig::default()
+        };
         let errs = cfg.validate().unwrap_err();
         assert!(errs.iter().any(|e| e.contains("epoch_length")));
     }
 
     #[test]
     fn validation_catches_zero_block_time() {
-        let mut cfg = ChainConfig::default();
-        cfg.block_time_ms = 0;
+        let cfg = ChainConfig {
+            block_time_ms: 0,
+            ..ChainConfig::default()
+        };
         let errs = cfg.validate().unwrap_err();
         assert!(errs.iter().any(|e| e.contains("block_time_ms")));
     }
 
     #[test]
     fn validation_catches_bps_over_10000() {
-        let mut cfg = ChainConfig::default();
-        cfg.slash_fraction_double_sign_bps = 10_001;
+        let cfg = ChainConfig {
+            slash_fraction_double_sign_bps: 10_001,
+            ..ChainConfig::default()
+        };
         let errs = cfg.validate().unwrap_err();
-        assert!(errs.iter().any(|e| e.contains("slash_fraction_double_sign_bps")));
+        assert!(errs
+            .iter()
+            .any(|e| e.contains("slash_fraction_double_sign_bps")));
     }
 
     #[test]
     fn validation_catches_governance_bps_over_10000() {
-        let mut cfg = ChainConfig::default();
-        cfg.governance_quorum_bps = 10_001;
+        let cfg = ChainConfig {
+            governance_quorum_bps: 10_001,
+            ..ChainConfig::default()
+        };
         let errs = cfg.validate().unwrap_err();
         assert!(errs.iter().any(|e| e.contains("governance_quorum_bps")));
     }
 
     #[test]
     fn validation_catches_zero_min_stake() {
-        let mut cfg = ChainConfig::default();
-        cfg.min_stake = 0;
+        let cfg = ChainConfig {
+            min_stake: 0,
+            ..ChainConfig::default()
+        };
         let errs = cfg.validate().unwrap_err();
         assert!(errs.iter().any(|e| e.contains("min_stake")));
     }
 
     #[test]
     fn validation_catches_zero_max_validators() {
-        let mut cfg = ChainConfig::default();
-        cfg.max_validators = 0;
+        let cfg = ChainConfig {
+            max_validators: 0,
+            ..ChainConfig::default()
+        };
         let errs = cfg.validate().unwrap_err();
         assert!(errs.iter().any(|e| e.contains("max_validators")));
     }
 
     #[test]
     fn validation_collects_multiple_errors() {
-        let mut cfg = ChainConfig::default();
-        cfg.chain_id = String::new();
-        cfg.block_time_ms = 0;
-        cfg.epoch_length = 0;
+        let cfg = ChainConfig {
+            chain_id: String::new(),
+            block_time_ms: 0,
+            epoch_length: 0,
+            ..ChainConfig::default()
+        };
         let errs = cfg.validate().unwrap_err();
-        assert!(errs.len() >= 3, "expected at least 3 errors, got {}", errs.len());
+        assert!(
+            errs.len() >= 3,
+            "expected at least 3 errors, got {}",
+            errs.len()
+        );
     }
 }

@@ -211,7 +211,10 @@ impl SnapshotRestorer {
     ///
     /// This recomputes the state root from the store and compares it against
     /// `expected_root`.
-    pub fn verify_restored_state(store: &dyn StateStore, expected_root: &Hash) -> StateResult<bool> {
+    pub fn verify_restored_state(
+        store: &dyn StateStore,
+        expected_root: &Hash,
+    ) -> StateResult<bool> {
         let commitment = compute_state_root(store)?;
         Ok(commitment.root == *expected_root)
     }
@@ -251,8 +254,7 @@ mod tests {
         let store = MemoryStore::new();
         let state_root = compute_state_root(&store).unwrap().root;
 
-        let (snapshot, chunks) =
-            SnapshotCreator::create_snapshot(&store, 0, state_root).unwrap();
+        let (snapshot, chunks) = SnapshotCreator::create_snapshot(&store, 0, state_root).unwrap();
 
         assert_eq!(snapshot.height, 0);
         assert_eq!(snapshot.state_root, state_root);
@@ -272,8 +274,7 @@ mod tests {
         populate_store(&store, 5);
         let state_root = compute_state_root(&store).unwrap().root;
 
-        let (snapshot, chunks) =
-            SnapshotCreator::create_snapshot(&store, 10, state_root).unwrap();
+        let (snapshot, chunks) = SnapshotCreator::create_snapshot(&store, 10, state_root).unwrap();
 
         assert_eq!(snapshot.height, 10);
         assert_eq!(snapshot.total_chunks, 1);
@@ -294,8 +295,7 @@ mod tests {
         populate_store(&source, 20);
         let state_root = compute_state_root(&source).unwrap().root;
 
-        let (snapshot, chunks) =
-            SnapshotCreator::create_snapshot(&source, 42, state_root).unwrap();
+        let (snapshot, chunks) = SnapshotCreator::create_snapshot(&source, 42, state_root).unwrap();
 
         // Restore into a fresh store.
         let target = MemoryStore::new();
@@ -329,8 +329,7 @@ mod tests {
         }
 
         let state_root = compute_state_root(&store).unwrap().root;
-        let (snapshot, chunks) =
-            SnapshotCreator::create_snapshot(&store, 99, state_root).unwrap();
+        let (snapshot, chunks) = SnapshotCreator::create_snapshot(&store, 99, state_root).unwrap();
 
         // We should have more than one chunk.
         assert!(
@@ -409,10 +408,8 @@ mod tests {
 
     #[test]
     fn hash_chunk_differs_for_different_entries() {
-        let entries_a: Vec<(Vec<u8>, Vec<u8>)> =
-            vec![(b"key1".to_vec(), b"val1".to_vec())];
-        let entries_b: Vec<(Vec<u8>, Vec<u8>)> =
-            vec![(b"key1".to_vec(), b"val2".to_vec())];
+        let entries_a: Vec<(Vec<u8>, Vec<u8>)> = vec![(b"key1".to_vec(), b"val1".to_vec())];
+        let entries_b: Vec<(Vec<u8>, Vec<u8>)> = vec![(b"key1".to_vec(), b"val2".to_vec())];
         assert_ne!(
             SnapshotCreator::hash_chunk(&entries_a),
             SnapshotCreator::hash_chunk(&entries_b),
@@ -427,23 +424,16 @@ mod tests {
 
         // Insert entries under different prefixes.
         let addr = Address::new([0x01; 32]);
-        store
-            .put_raw(&keys::balance_key(&addr), b"100")
-            .unwrap();
+        store.put_raw(&keys::balance_key(&addr), b"100").unwrap();
         store
             .put_raw(&keys::account_key(&addr), b"acct-data")
             .unwrap();
-        store
-            .put_raw(&keys::chain_height_key(), b"42")
-            .unwrap();
-        store
-            .put_raw(&keys::block_key(1), b"block-data")
-            .unwrap();
+        store.put_raw(&keys::chain_height_key(), b"42").unwrap();
+        store.put_raw(&keys::block_key(1), b"block-data").unwrap();
 
         let state_root = compute_state_root(&store).unwrap().root;
 
-        let (snapshot, chunks) =
-            SnapshotCreator::create_snapshot(&store, 42, state_root).unwrap();
+        let (snapshot, chunks) = SnapshotCreator::create_snapshot(&store, 42, state_root).unwrap();
 
         // All 4 entries should be captured (prefix_scan with empty prefix
         // returns everything, including chain meta and blocks).

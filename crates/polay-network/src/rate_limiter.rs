@@ -47,10 +47,7 @@ impl PeerRateLimiter {
     /// Check whether a message of `message_size` bytes from `peer_id` should
     /// be allowed. Returns `true` if allowed, `false` if rate-limited.
     pub fn check_rate(&mut self, peer_id: &PeerId, message_size: usize) -> bool {
-        let limit = self
-            .limits
-            .entry(*peer_id)
-            .or_insert_with(PeerLimit::new);
+        let limit = self.limits.entry(*peer_id).or_insert_with(PeerLimit::new);
 
         limit.maybe_reset();
 

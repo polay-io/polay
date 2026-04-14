@@ -499,12 +499,18 @@ mod tests {
         assert_eq!(account_key(&addr(1))[0], PREFIX_ACCOUNT);
         assert_eq!(balance_key(&addr(1))[0], PREFIX_BALANCE);
         assert_eq!(asset_class_key(&hash(1))[0], PREFIX_ASSET_CLASS);
-        assert_eq!(asset_balance_key(&hash(1), &addr(1))[0], PREFIX_ASSET_BALANCE);
+        assert_eq!(
+            asset_balance_key(&hash(1), &addr(1))[0],
+            PREFIX_ASSET_BALANCE
+        );
         assert_eq!(validator_key(&addr(1))[0], PREFIX_VALIDATOR);
         assert_eq!(delegation_key(&addr(1), &addr(2))[0], PREFIX_DELEGATION);
         assert_eq!(listing_key(&hash(1))[0], PREFIX_LISTING);
         assert_eq!(profile_key(&addr(1))[0], PREFIX_PROFILE);
-        assert_eq!(achievement_key(&addr(1), "first_win")[0], PREFIX_ACHIEVEMENT);
+        assert_eq!(
+            achievement_key(&addr(1), "first_win")[0],
+            PREFIX_ACHIEVEMENT
+        );
         assert_eq!(attestor_key(&addr(1))[0], PREFIX_ATTESTOR);
         assert_eq!(match_result_key(&hash(1))[0], PREFIX_MATCH_RESULT);
         assert_eq!(match_settlement_key(&hash(1))[0], PREFIX_MATCH_SETTLEMENT);

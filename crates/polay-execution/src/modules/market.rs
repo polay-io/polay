@@ -179,7 +179,9 @@ pub fn execute_buy_listing(
     // Calculate fees.
     let protocol_fee = ((total_price as u128) * config.protocol_fee_bps as u128 / 10_000) as u64;
     let royalty = listing.royalty_amount();
-    let seller_proceeds = total_price.saturating_sub(protocol_fee).saturating_sub(royalty);
+    let seller_proceeds = total_price
+        .saturating_sub(protocol_fee)
+        .saturating_sub(royalty);
 
     // Debit buyer's native balance.
     let mut buyer_account = view
@@ -191,12 +193,12 @@ pub fn execute_buy_listing(
             available: buyer_account.balance,
         });
     }
-    buyer_account.balance = buyer_account.balance
-        .checked_sub(total_price)
-        .ok_or(ExecutionError::InsufficientBalance {
+    buyer_account.balance = buyer_account.balance.checked_sub(total_price).ok_or(
+        ExecutionError::InsufficientBalance {
             required: total_price,
             available: buyer_account.balance,
-        })?;
+        },
+    )?;
     writer.set_account(&buyer_account)?;
 
     // Credit seller.
@@ -249,7 +251,11 @@ pub fn execute_buy_listing(
         "listing purchased"
     );
 
-    Ok(vec![Event::listing_sold(listing_id, buyer, &listing.seller)])
+    Ok(vec![Event::listing_sold(
+        listing_id,
+        buyer,
+        &listing.seller,
+    )])
 }
 
 // ---------------------------------------------------------------------------
@@ -290,9 +296,17 @@ mod tests {
             .set_account(&AccountState::with_balance(creator, 50_000, 0))
             .unwrap();
 
-        let (listing_id, _) =
-            execute_create_listing(&creator, &asset_id, 10, 500, &Hash::ZERO, store, &config, 200)
-                .unwrap();
+        let (listing_id, _) = execute_create_listing(
+            &creator,
+            &asset_id,
+            10,
+            500,
+            &Hash::ZERO,
+            store,
+            &config,
+            200,
+        )
+        .unwrap();
 
         (asset_id, listing_id)
     }
@@ -385,8 +399,7 @@ mod tests {
             .set_account(&AccountState::with_balance(buyer, 100_000, 0))
             .unwrap();
 
-        let events =
-            execute_buy_listing(&buyer, &listing_id, &store, &config, 300).unwrap();
+        let events = execute_buy_listing(&buyer, &listing_id, &store, &config, 300).unwrap();
         assert!(!events.is_empty());
 
         let view = StateView::new(&store);
@@ -422,8 +435,7 @@ mod tests {
         let seller = test_addr(1);
         let config = ChainConfig::default();
 
-        let err =
-            execute_buy_listing(&seller, &listing_id, &store, &config, 300).unwrap_err();
+        let err = execute_buy_listing(&seller, &listing_id, &store, &config, 300).unwrap_err();
         assert!(matches!(err, ExecutionError::CannotBuyOwnListing));
     }
 
@@ -439,8 +451,7 @@ mod tests {
             .set_account(&AccountState::with_balance(buyer, 100, 0))
             .unwrap();
 
-        let err =
-            execute_buy_listing(&buyer, &listing_id, &store, &config, 300).unwrap_err();
+        let err = execute_buy_listing(&buyer, &listing_id, &store, &config, 300).unwrap_err();
         assert!(matches!(err, ExecutionError::InsufficientBalance { .. }));
     }
 }

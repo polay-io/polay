@@ -76,23 +76,14 @@ impl MarketModule {
     /// `(seller_receives, protocol_fee, royalty)`
     ///
     /// All amounts are rounded down (truncated).
-    pub fn calculate_fees(
-        price: u64,
-        protocol_fee_bps: u16,
-        royalty_bps: u16,
-    ) -> (u64, u64, u64) {
-        let protocol_fee =
-            ((price as u128) * protocol_fee_bps as u128 / 10_000u128) as u64;
-        let royalty =
-            ((price as u128) * royalty_bps as u128 / 10_000u128) as u64;
+    pub fn calculate_fees(price: u64, protocol_fee_bps: u16, royalty_bps: u16) -> (u64, u64, u64) {
+        let protocol_fee = ((price as u128) * protocol_fee_bps as u128 / 10_000u128) as u64;
+        let royalty = ((price as u128) * royalty_bps as u128 / 10_000u128) as u64;
         let seller_receives = price.saturating_sub(protocol_fee).saturating_sub(royalty);
 
         debug!(
             price,
-            protocol_fee,
-            royalty,
-            seller_receives,
-            "fee breakdown calculated"
+            protocol_fee, royalty, seller_receives, "fee breakdown calculated"
         );
 
         (seller_receives, protocol_fee, royalty)
@@ -234,16 +225,14 @@ mod tests {
     #[test]
     fn get_listings_by_asset_returns_empty() {
         let store = MemoryStore::new();
-        let listings =
-            MarketModule::get_listings_by_asset(&store, &test_hash(1)).unwrap();
+        let listings = MarketModule::get_listings_by_asset(&store, &test_hash(1)).unwrap();
         assert!(listings.is_empty());
     }
 
     #[test]
     fn get_listings_by_seller_returns_empty() {
         let store = MemoryStore::new();
-        let listings =
-            MarketModule::get_listings_by_seller(&store, &test_addr(1)).unwrap();
+        let listings = MarketModule::get_listings_by_seller(&store, &test_addr(1)).unwrap();
         assert!(listings.is_empty());
     }
 

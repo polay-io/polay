@@ -146,12 +146,12 @@ impl Executor {
                         available: signer_account.balance,
                     });
                 }
-                signer_account.balance = signer_account.balance
-                    .checked_sub(actual_fee)
-                    .ok_or(ExecutionError::InsufficientBalance {
+                signer_account.balance = signer_account.balance.checked_sub(actual_fee).ok_or(
+                    ExecutionError::InsufficientBalance {
                         required: actual_fee,
                         available: signer_account.balance,
-                    })?;
+                    },
+                )?;
                 signer_account.increment_nonce();
                 writer.set_account(&signer_account)?;
 
@@ -169,12 +169,12 @@ impl Executor {
                         available: sponsor_account.balance,
                     });
                 }
-                sponsor_account.balance = sponsor_account.balance
-                    .checked_sub(actual_fee)
-                    .ok_or(ExecutionError::InsufficientBalance {
+                sponsor_account.balance = sponsor_account.balance.checked_sub(actual_fee).ok_or(
+                    ExecutionError::InsufficientBalance {
                         required: actual_fee,
                         available: sponsor_account.balance,
-                    })?;
+                    },
+                )?;
                 writer.set_account(&sponsor_account)?;
 
                 // Only increment signer's nonce (sponsor nonce is NOT incremented).
@@ -191,7 +191,9 @@ impl Executor {
             let fd = &self.chain_config.fee_distribution;
             let burn_amount = (actual_fee as u128 * fd.burn_bps as u128 / 10_000) as u64;
             let treasury_amount = (actual_fee as u128 * fd.treasury_bps as u128 / 10_000) as u64;
-            let validator_amount = actual_fee.saturating_sub(burn_amount).saturating_sub(treasury_amount);
+            let validator_amount = actual_fee
+                .saturating_sub(burn_amount)
+                .saturating_sub(treasury_amount);
 
             let view = StateView::new(store);
             let writer = StateWriter::new(store);
@@ -228,7 +230,13 @@ impl Executor {
         }
 
         // Dispatch to the appropriate module handler.
-        let result = self.dispatch_action(&tx.transaction.action, &signer, store, timestamp, block_height);
+        let result = self.dispatch_action(
+            &tx.transaction.action,
+            &signer,
+            store,
+            timestamp,
+            block_height,
+        );
 
         match result {
             Ok((mut events, mut action_changes)) => {
@@ -516,13 +524,8 @@ impl Executor {
                 to,
                 amount,
             } => {
-                let events = assets::execute_transfer_asset(
-                    signer,
-                    asset_class_id,
-                    to,
-                    *amount,
-                    store,
-                )?;
+                let events =
+                    assets::execute_transfer_asset(signer, asset_class_id, to, *amount, store)?;
                 Ok((
                     events,
                     vec![StateChange::AssetTransferred(
@@ -538,8 +541,7 @@ impl Executor {
                 asset_class_id,
                 amount,
             } => {
-                let events =
-                    assets::execute_burn_asset(signer, asset_class_id, *amount, store)?;
+                let events = assets::execute_burn_asset(signer, asset_class_id, *amount, store)?;
                 Ok((
                     events,
                     vec![StateChange::AssetBurned(*asset_class_id, *signer, *amount)],
@@ -567,8 +569,7 @@ impl Executor {
             }
 
             TransactionAction::CancelListing { listing_id } => {
-                let events =
-                    market::execute_cancel_listing(signer, listing_id, store)?;
+                let events = market::execute_cancel_listing(signer, listing_id, store)?;
                 Ok((events, vec![StateChange::ListingCancelled(*listing_id)]))
             }
 
@@ -667,7 +668,12 @@ impl Executor {
 
             TransactionAction::UndelegateStake { validator, amount } => {
                 let events = staking::execute_undelegate_stake(
-                    signer, validator, *amount, store, block_height, &self.chain_config,
+                    signer,
+                    validator,
+                    *amount,
+                    store,
+                    block_height,
+                    &self.chain_config,
                 )?;
                 Ok((
                     events,
@@ -705,10 +711,7 @@ impl Executor {
                 let events = attestation::execute_distribute_reward(
                     signer, match_id, rewards, store, timestamp,
                 )?;
-                Ok((
-                    events,
-                    vec![StateChange::RewardsDistributed(*match_id)],
-                ))
+                Ok((events, vec![StateChange::RewardsDistributed(*match_id)]))
             }
 
             // -- Governance --
@@ -756,10 +759,7 @@ impl Executor {
                     &self.chain_config,
                     block_height,
                 )?;
-                Ok((
-                    events,
-                    vec![StateChange::ProposalExecuted(*proposal_id)],
-                ))
+                Ok((events, vec![StateChange::ProposalExecuted(*proposal_id)]))
             }
 
             // -- Session keys --
@@ -790,8 +790,7 @@ impl Executor {
             }
 
             TransactionAction::RevokeSession { session_address } => {
-                let events =
-                    session::execute_revoke_session(signer, session_address, store)?;
+                let events = session::execute_revoke_session(signer, session_address, store)?;
                 Ok((
                     events,
                     vec![StateChange::SessionRevoked(*signer, *session_address)],
@@ -822,15 +821,17 @@ impl Executor {
                 Ok((events, vec![]))
             }
 
-            TransactionAction::RentAsset { rental_id, duration } => {
+            TransactionAction::RentAsset {
+                rental_id,
+                duration,
+            } => {
                 let events =
                     rental::execute_rent_asset(signer, rental_id, *duration, store, block_height)?;
                 Ok((events, vec![]))
             }
 
             TransactionAction::ReturnRental { rental_id } => {
-                let events =
-                    rental::execute_return_rental(signer, rental_id, store, block_height)?;
+                let events = rental::execute_return_rental(signer, rental_id, store, block_height)?;
                 Ok((events, vec![]))
             }
 
@@ -841,8 +842,7 @@ impl Executor {
             }
 
             TransactionAction::CancelRentalListing { rental_id } => {
-                let events =
-                    rental::execute_cancel_rental_listing(signer, rental_id, store)?;
+                let events = rental::execute_cancel_rental_listing(signer, rental_id, store)?;
                 Ok((events, vec![]))
             }
 
@@ -865,8 +865,7 @@ impl Executor {
             }
 
             TransactionAction::JoinGuild { guild_id } => {
-                let events =
-                    guild::execute_join_guild(signer, guild_id, store, block_height)?;
+                let events = guild::execute_join_guild(signer, guild_id, store, block_height)?;
                 Ok((events, vec![]))
             }
 
@@ -876,14 +875,12 @@ impl Executor {
             }
 
             TransactionAction::GuildDeposit { guild_id, amount } => {
-                let events =
-                    guild::execute_guild_deposit(signer, guild_id, *amount, store)?;
+                let events = guild::execute_guild_deposit(signer, guild_id, *amount, store)?;
                 Ok((events, vec![]))
             }
 
             TransactionAction::GuildWithdraw { guild_id, amount } => {
-                let events =
-                    guild::execute_guild_withdraw(signer, guild_id, *amount, store)?;
+                let events = guild::execute_guild_withdraw(signer, guild_id, *amount, store)?;
                 Ok((events, vec![]))
             }
 
@@ -892,14 +889,12 @@ impl Executor {
                 member,
                 role,
             } => {
-                let events =
-                    guild::execute_guild_promote(signer, guild_id, member, role, store)?;
+                let events = guild::execute_guild_promote(signer, guild_id, member, role, store)?;
                 Ok((events, vec![]))
             }
 
             TransactionAction::GuildKick { guild_id, member } => {
-                let events =
-                    guild::execute_guild_kick(signer, guild_id, member, store)?;
+                let events = guild::execute_guild_kick(signer, guild_id, member, store)?;
                 Ok((events, vec![]))
             }
 
@@ -930,14 +925,17 @@ impl Executor {
             }
 
             TransactionAction::JoinTournament { tournament_id } => {
-                let events =
-                    tournament::execute_join_tournament(signer, tournament_id, store)?;
+                let events = tournament::execute_join_tournament(signer, tournament_id, store)?;
                 Ok((events, vec![]))
             }
 
             TransactionAction::StartTournament { tournament_id } => {
-                let events =
-                    tournament::execute_start_tournament(signer, tournament_id, store, block_height)?;
+                let events = tournament::execute_start_tournament(
+                    signer,
+                    tournament_id,
+                    store,
+                    block_height,
+                )?;
                 Ok((events, vec![]))
             }
 
@@ -962,8 +960,7 @@ impl Executor {
             }
 
             TransactionAction::CancelTournament { tournament_id } => {
-                let events =
-                    tournament::execute_cancel_tournament(signer, tournament_id, store)?;
+                let events = tournament::execute_cancel_tournament(signer, tournament_id, store)?;
                 Ok((events, vec![]))
             }
         }
@@ -1048,14 +1045,19 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(result.receipt.success);
         assert!(result.receipt.fee_used > 0);
         assert!(!result.receipt.events.is_empty());
 
         let view = StateView::new(&store);
         let sender_acct = view.get_account(&sender).unwrap().unwrap();
-        assert_eq!(sender_acct.balance, 1_000_000 - result.receipt.fee_used - 500);
+        assert_eq!(
+            sender_acct.balance,
+            1_000_000 - result.receipt.fee_used - 500
+        );
         assert_eq!(sender_acct.nonce, 1);
 
         // Receiver: 500
@@ -1087,7 +1089,9 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         // Fee is deducted, but action fails.
         assert!(!result.receipt.success);
         assert!(result.receipt.fee_used > 0);
@@ -1165,7 +1169,9 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(result.receipt.success);
 
         let profile = StateView::new(&store).get_profile(&addr).unwrap().unwrap();
@@ -1194,10 +1200,15 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(result.receipt.success);
 
-        let v = StateView::new(&store).get_validator(&addr).unwrap().unwrap();
+        let v = StateView::new(&store)
+            .get_validator(&addr)
+            .unwrap()
+            .unwrap();
         assert!(v.is_active());
         assert_eq!(v.commission_bps, 500);
     }
@@ -1276,7 +1287,9 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(result.receipt.success);
         assert!(result.receipt.gas_used > 0);
         // For a transfer: base_gas (21000) + action_gas (5000) + data_size * 16
@@ -1307,7 +1320,9 @@ mod tests {
             sponsor: None,
         });
 
-        let err = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap_err();
+        let err = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap_err();
         assert!(matches!(err, ExecutionError::FeeTooLow));
     }
 
@@ -1357,13 +1372,11 @@ mod tests {
         // First tx should succeed; second should be skipped (block gas limit).
         assert!(receipts[0].success);
         assert!(!receipts[1].success);
-        assert!(
-            receipts[1]
-                .error
-                .as_deref()
-                .unwrap()
-                .contains("block gas limit")
-        );
+        assert!(receipts[1]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("block gas limit"));
     }
 
     #[test]
@@ -1391,7 +1404,9 @@ mod tests {
         let store = MemoryStore::new();
         seed_account(&store, test_addr(1), 10_000_000);
         let stx = make_signed_tx(tx);
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert_eq!(result.receipt.gas_used, estimated_gas);
     }
 
@@ -1406,13 +1421,8 @@ mod tests {
         let delegator_addr = test_addr(2);
 
         // Register validator and delegate.
-        crate::modules::staking::execute_register_validator(
-            &validator_addr,
-            500,
-            &store,
-            &config,
-        )
-        .unwrap();
+        crate::modules::staking::execute_register_validator(&validator_addr, 500, &store, &config)
+            .unwrap();
         seed_account(&store, delegator_addr, 100_000_000);
         crate::modules::staking::execute_delegate_stake(
             &delegator_addr,
@@ -1437,22 +1447,14 @@ mod tests {
         .unwrap();
 
         let view = StateView::new(&store);
-        let balance_before = view
-            .get_account(&delegator_addr)
-            .unwrap()
-            .unwrap()
-            .balance;
+        let balance_before = view.get_account(&delegator_addr).unwrap().unwrap().balance;
 
         // Execute an empty block at the completion height (100 + 10 = 110).
         // The unbonding should be processed.
         let receipts = executor.execute_block(&[], &store, 110, &Address::ZERO);
         assert!(receipts.is_empty());
 
-        let balance_after = view
-            .get_account(&delegator_addr)
-            .unwrap()
-            .unwrap()
-            .balance;
+        let balance_after = view.get_account(&delegator_addr).unwrap().unwrap().balance;
         assert_eq!(balance_after, balance_before + 20_000);
     }
 
@@ -1559,7 +1561,10 @@ mod tests {
             .expect_err("should fail with InsufficientBalance");
 
         match err {
-            ExecutionError::InsufficientBalance { required, available } => {
+            ExecutionError::InsufficientBalance {
+                required,
+                available,
+            } => {
                 assert!(
                     required > available,
                     "required ({required}) must exceed available ({available})"
@@ -1574,7 +1579,10 @@ mod tests {
             .get_account(&sender)
             .unwrap()
             .expect("account must still exist");
-        assert_eq!(acc.balance, 1, "balance must remain unchanged after failed tx");
+        assert_eq!(
+            acc.balance, 1,
+            "balance must remain unchanged after failed tx"
+        );
     }
 
     // =======================================================================
@@ -1606,9 +1614,15 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(result.receipt.success);
-        assert!(result.receipt.events.iter().any(|e| e.module == "session" && e.action == "session_created"));
+        assert!(result
+            .receipt
+            .events
+            .iter()
+            .any(|e| e.module == "session" && e.action == "session_created"));
     }
 
     #[test]
@@ -1626,9 +1640,10 @@ mod tests {
             signer: sender,
             action: TransactionAction::CreateSession {
                 session_pubkey: vec![0xBB; 32],
-                permissions: polay_types::SessionPermission::Actions(
-                    vec!["transfer".into(), "buy_listing".into()],
-                ),
+                permissions: polay_types::SessionPermission::Actions(vec![
+                    "transfer".into(),
+                    "buy_listing".into(),
+                ]),
                 expires_at: 500,
                 spending_limit: 100_000,
             },
@@ -1638,13 +1653,15 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(result.receipt.success);
 
         // Verify the grant was stored with the right permissions.
         let session_addr = {
-            use sha2::{Sha256, Digest};
-            let d = Sha256::digest(&[0xBB; 32]);
+            use sha2::{Digest, Sha256};
+            let d = Sha256::digest([0xBB; 32]);
             let mut b = [0u8; 32];
             b.copy_from_slice(&d[..32]);
             Address::new(b)
@@ -1681,13 +1698,15 @@ mod tests {
             session: None,
             sponsor: None,
         });
-        let r1 = executor.execute_transaction(&stx1, &store, 1, &Address::ZERO).unwrap();
+        let r1 = executor
+            .execute_transaction(&stx1, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(r1.receipt.success);
 
         // Derive session address.
         let session_addr = {
-            use sha2::{Sha256, Digest};
-            let d = Sha256::digest(&[0xCC; 32]);
+            use sha2::{Digest, Sha256};
+            let d = Sha256::digest([0xCC; 32]);
             let mut b = [0u8; 32];
             b.copy_from_slice(&d[..32]);
             Address::new(b)
@@ -1706,9 +1725,15 @@ mod tests {
             session: None,
             sponsor: None,
         });
-        let r2 = executor.execute_transaction(&stx2, &store, 2, &Address::ZERO).unwrap();
+        let r2 = executor
+            .execute_transaction(&stx2, &store, 2, &Address::ZERO)
+            .unwrap();
         assert!(r2.receipt.success);
-        assert!(r2.receipt.events.iter().any(|e| e.module == "session" && e.action == "session_revoked"));
+        assert!(r2
+            .receipt
+            .events
+            .iter()
+            .any(|e| e.module == "session" && e.action == "session_revoked"));
 
         // Verify it is revoked.
         let view = StateView::new(&store);
@@ -1729,7 +1754,7 @@ mod tests {
         // Create a session.
         let session_pubkey = vec![0xDD; 32];
         let session_addr = {
-            use sha2::{Sha256, Digest};
+            use sha2::{Digest, Sha256};
             let d = Sha256::digest(&session_pubkey);
             let mut b = [0u8; 32];
             b.copy_from_slice(&d[..32]);
@@ -1751,7 +1776,9 @@ mod tests {
             session: None,
             sponsor: None,
         });
-        let r1 = executor.execute_transaction(&stx1, &store, 1, &Address::ZERO).unwrap();
+        let r1 = executor
+            .execute_transaction(&stx1, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(r1.receipt.success);
 
         // Now simulate a session-signed transfer. Since this is an integration
@@ -1770,7 +1797,9 @@ mod tests {
             session: Some(session_addr),
             sponsor: None,
         });
-        let r2 = executor.execute_transaction(&stx2, &store, 2, &Address::ZERO).unwrap();
+        let r2 = executor
+            .execute_transaction(&stx2, &store, 2, &Address::ZERO)
+            .unwrap();
         assert!(r2.receipt.success);
 
         // Check the session's amount_spent was updated.
@@ -1806,12 +1835,17 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(result.receipt.success);
 
         let view = StateView::new(&store);
         let sender_acct = view.get_account(&sender).unwrap().unwrap();
-        assert_eq!(sender_acct.balance, 10_000_000 - result.receipt.fee_used - 1000);
+        assert_eq!(
+            sender_acct.balance,
+            10_000_000 - result.receipt.fee_used - 1000
+        );
     }
 
     // =======================================================================
@@ -1828,7 +1862,7 @@ mod tests {
         let sponsor = test_addr(2);
         let receiver = test_addr(3);
 
-        seed_account(&store, signer, 10_000);   // only enough for transfer amount
+        seed_account(&store, signer, 10_000); // only enough for transfer amount
         seed_account(&store, sponsor, 5_000_000); // plenty to cover fee
 
         let stx = make_signed_tx(Transaction {
@@ -1845,7 +1879,9 @@ mod tests {
             sponsor: Some(sponsor),
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(result.receipt.success);
         assert!(result.receipt.fee_used > 0);
         assert_eq!(result.receipt.fee_payer, sponsor);
@@ -1867,11 +1903,17 @@ mod tests {
         assert_eq!(recv_acct.balance, 500);
 
         // Check gas_sponsored event was emitted.
-        let sponsored_events: Vec<_> = result.receipt.events.iter()
+        let sponsored_events: Vec<_> = result
+            .receipt
+            .events
+            .iter()
             .filter(|e| e.action == "gas_sponsored")
             .collect();
         assert_eq!(sponsored_events.len(), 1);
-        assert_eq!(sponsored_events[0].get_attribute("sponsor").unwrap(), sponsor.to_hex());
+        assert_eq!(
+            sponsored_events[0].get_attribute("sponsor").unwrap(),
+            sponsor.to_hex()
+        );
     }
 
     #[test]
@@ -1902,7 +1944,9 @@ mod tests {
             sponsor: Some(sponsor),
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(!result.receipt.success); // action failed
         assert!(result.receipt.fee_used > 0);
         assert_eq!(result.receipt.fee_payer, sponsor);
@@ -1939,17 +1983,25 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(result.receipt.success);
         assert_eq!(result.receipt.fee_payer, sender);
 
         let view = StateView::new(&store);
         let sender_acct = view.get_account(&sender).unwrap().unwrap();
-        assert_eq!(sender_acct.balance, 1_000_000 - result.receipt.fee_used - 500);
+        assert_eq!(
+            sender_acct.balance,
+            1_000_000 - result.receipt.fee_used - 500
+        );
         assert_eq!(sender_acct.nonce, 1);
 
         // No gas_sponsored event.
-        let sponsored_events: Vec<_> = result.receipt.events.iter()
+        let sponsored_events: Vec<_> = result
+            .receipt
+            .events
+            .iter()
             .filter(|e| e.action == "gas_sponsored")
             .collect();
         assert!(sponsored_events.is_empty());
@@ -1987,7 +2039,9 @@ mod tests {
             sponsor: Some(sponsor),
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(result.receipt.success);
         assert_eq!(result.receipt.fee_payer, sponsor);
 
@@ -2042,7 +2096,9 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &proposer).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &proposer)
+            .unwrap();
         assert!(result.receipt.success);
         let fee = result.receipt.fee_used;
         assert!(fee > 0);
@@ -2099,7 +2155,9 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &Address::ZERO).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &Address::ZERO)
+            .unwrap();
         assert!(result.receipt.success);
         assert_eq!(result.receipt.fee_used, 0);
 
@@ -2139,7 +2197,9 @@ mod tests {
             sponsor: None,
         });
 
-        let result = executor.execute_transaction(&stx, &store, 1, &proposer).unwrap();
+        let result = executor
+            .execute_transaction(&stx, &store, 1, &proposer)
+            .unwrap();
         assert!(result.receipt.success);
         let fee = result.receipt.fee_used;
 
@@ -2183,7 +2243,9 @@ mod tests {
             session: None,
             sponsor: None,
         });
-        let r1 = executor.execute_transaction(&stx1, &store, 1, &proposer).unwrap();
+        let r1 = executor
+            .execute_transaction(&stx1, &store, 1, &proposer)
+            .unwrap();
         assert!(r1.receipt.success);
         let burn1 = (r1.receipt.fee_used as u128 * 5000 / 10_000) as u64;
 
@@ -2201,7 +2263,9 @@ mod tests {
             session: None,
             sponsor: None,
         });
-        let r2 = executor.execute_transaction(&stx2, &store, 2, &proposer).unwrap();
+        let r2 = executor
+            .execute_transaction(&stx2, &store, 2, &proposer)
+            .unwrap();
         assert!(r2.receipt.success);
         let burn2 = (r2.receipt.fee_used as u128 * 5000 / 10_000) as u64;
 

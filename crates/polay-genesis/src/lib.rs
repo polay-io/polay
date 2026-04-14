@@ -511,10 +511,7 @@ mod tests {
     fn testnet_has_different_parameters_than_devnet() {
         let devnet = Genesis::generate_devnet();
         let testnet = Genesis::generate_testnet(4);
-        assert_ne!(
-            devnet.chain_config.chain_id,
-            testnet.chain_config.chain_id
-        );
+        assert_ne!(devnet.chain_config.chain_id, testnet.chain_config.chain_id);
         assert_ne!(
             devnet.chain_config.block_time_ms,
             testnet.chain_config.block_time_ms

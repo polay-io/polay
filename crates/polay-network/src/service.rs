@@ -161,11 +161,9 @@ impl P2PService {
                 )
                 .expect("valid gossipsub behaviour");
 
-                let mdns = mdns::tokio::Behaviour::new(
-                    mdns::Config::default(),
-                    key.public().to_peer_id(),
-                )
-                .expect("valid mDNS behaviour");
+                let mdns =
+                    mdns::tokio::Behaviour::new(mdns::Config::default(), key.public().to_peer_id())
+                        .expect("valid mDNS behaviour");
 
                 PolayBehaviour { gossipsub, mdns }
             })
@@ -439,13 +437,11 @@ impl P2PService {
         enable_mdns: bool,
     ) {
         match event {
-            SwarmEvent::Behaviour(PolayBehaviourEvent::Gossipsub(
-                gossipsub::Event::Message {
-                    propagation_source,
-                    message,
-                    ..
-                },
-            )) => {
+            SwarmEvent::Behaviour(PolayBehaviourEvent::Gossipsub(gossipsub::Event::Message {
+                propagation_source,
+                message,
+                ..
+            })) => {
                 let peer_id = propagation_source;
                 let topic_str = message.topic.as_str();
                 let data_len = message.data.len();
@@ -527,10 +523,7 @@ impl P2PService {
                 }
                 for (peer_id, addr) in peers {
                     info!(%peer_id, %addr, "mDNS discovered peer");
-                    swarm
-                        .behaviour_mut()
-                        .gossipsub
-                        .add_explicit_peer(&peer_id);
+                    swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                     let _ = event_tx
                         .send(P2PEvent::PeerConnected(peer_id.to_string()))
                         .await;
@@ -595,9 +588,7 @@ impl P2PService {
                 let _ = event_tx.send(P2PEvent::BlockReceived(block)).await;
             }
             NetworkMessage::ConsensusVote(msg) if topic_str == TOPIC_CONSENSUS => {
-                let _ = event_tx
-                    .send(P2PEvent::ConsensusMessageReceived(msg))
-                    .await;
+                let _ = event_tx.send(P2PEvent::ConsensusMessageReceived(msg)).await;
             }
             _ => {
                 // Payload type does not match the topic -- treat as bad message.
@@ -645,9 +636,7 @@ impl P2PService {
             match serde_json::from_slice::<ConsensusVoteMsg>(data) {
                 Ok(msg) => {
                     peer_manager.record_good_message(peer_id);
-                    let _ = event_tx
-                        .send(P2PEvent::ConsensusMessageReceived(msg))
-                        .await;
+                    let _ = event_tx.send(P2PEvent::ConsensusMessageReceived(msg)).await;
                 }
                 Err(e) => {
                     warn!(%peer_id, error = %e, "failed to deserialize legacy consensus msg");
@@ -723,7 +712,10 @@ impl NetworkService {
 
     /// Run the service loop, draining outbound messages and logging them.
     pub async fn run(mut self) {
-        info!(peers = self.peers.len(), "network service started (MVP stub)");
+        info!(
+            peers = self.peers.len(),
+            "network service started (MVP stub)"
+        );
         while let Some(msg) = self.outbound_rx.recv().await {
             debug!(?msg, "outbound message (would broadcast to peers)");
         }
@@ -801,10 +793,7 @@ impl LocalNetwork {
 
     /// Run the local network relay loop.
     pub async fn run(mut self) {
-        info!(
-            nodes = self.services.len(),
-            "local network relay started"
-        );
+        info!(nodes = self.services.len(), "local network relay started");
 
         let inbound_senders: Vec<mpsc::Sender<NetworkMessage>> = self
             .services
@@ -834,7 +823,10 @@ impl LocalNetwork {
                     continue;
                 }
                 if tx.send(msg.clone()).await.is_err() {
-                    warn!(node = idx, "failed to deliver message to node (channel closed)");
+                    warn!(
+                        node = idx,
+                        "failed to deliver message to node (channel closed)"
+                    );
                 }
             }
         }
@@ -881,7 +873,10 @@ mod tests {
 
         let relay_handle = tokio::spawn(local_net.run());
 
-        handles[0].broadcast(NetworkMessage::Ping(42)).await.unwrap();
+        handles[0]
+            .broadcast(NetworkMessage::Ping(42))
+            .await
+            .unwrap();
 
         let msg1 = handles[1].recv().await.unwrap();
         match msg1 {

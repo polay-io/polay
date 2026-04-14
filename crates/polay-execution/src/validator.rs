@@ -22,10 +22,7 @@ use crate::input_validation;
 /// - `tx_hash` matches the recomputed hash
 /// - Transaction size does not exceed the configured maximum
 /// - Action-specific input validation (field lengths, ranges, etc.)
-pub fn validate_stateless(
-    tx: &SignedTransaction,
-    chain_id: &str,
-) -> Result<(), ExecutionError> {
+pub fn validate_stateless(tx: &SignedTransaction, chain_id: &str) -> Result<(), ExecutionError> {
     validate_stateless_with_config(tx, chain_id, None)
 }
 
@@ -93,11 +90,11 @@ pub fn validate_stateless_with_config(
     }
 
     // Derive address from pubkey and verify it matches the expected identity.
-    let pubkey_bytes: [u8; 32] = tx.signer_pubkey[..32]
-        .try_into()
-        .map_err(|_| ExecutionError::InvalidSignerPubkey(
+    let pubkey_bytes: [u8; 32] = tx.signer_pubkey[..32].try_into().map_err(|_| {
+        ExecutionError::InvalidSignerPubkey(
             "failed to convert signer_pubkey to [u8; 32]".to_string(),
-        ))?;
+        )
+    })?;
     let pubkey = PolayPublicKey::from_bytes(&pubkey_bytes).map_err(|e| {
         ExecutionError::InvalidSignerPubkey(format!("invalid Ed25519 public key: {e}"))
     })?;
@@ -307,8 +304,7 @@ mod tests {
     use polay_crypto::{sha256, PolayKeypair};
     use polay_state::MemoryStore;
     use polay_types::{
-        AccountState, Address, Hash, Signature, SignedTransaction, Transaction,
-        TransactionAction,
+        AccountState, Address, Hash, Signature, SignedTransaction, Transaction, TransactionAction,
     };
 
     const CHAIN_ID: &str = "polay-test-1";
@@ -329,12 +325,7 @@ mod tests {
         payload.extend_from_slice(sig.as_bytes());
         let tx_hash = sha256(&payload);
 
-        SignedTransaction::new(
-            tx,
-            sig,
-            tx_hash,
-            kp.public_key().to_bytes().to_vec(),
-        )
+        SignedTransaction::new(tx, sig, tx_hash, kp.public_key().to_bytes().to_vec())
     }
 
     /// Build a signed tx with a fake (invalid) signature.
@@ -460,7 +451,13 @@ mod tests {
             .unwrap();
 
         let err = validate_stateful(&stx, &store).unwrap_err();
-        assert!(matches!(err, ExecutionError::InvalidNonce { expected: 5, got: 0 }));
+        assert!(matches!(
+            err,
+            ExecutionError::InvalidNonce {
+                expected: 5,
+                got: 0
+            }
+        ));
     }
 
     #[test]
@@ -515,20 +512,11 @@ mod tests {
         }
     }
 
-    fn derive_session_address(pubkey: &[u8]) -> Address {
-        use sha2::{Digest, Sha256};
-        let d = Sha256::digest(pubkey);
-        let mut b = [0u8; 32];
-        b.copy_from_slice(&d[..32]);
-        Address::new(b)
-    }
-
     #[test]
     fn stateless_session_key_address_matches_session_field() {
         // For a session-signed tx, the pubkey must derive to session address,
         // not the signer.
         let session_kp = PolayKeypair::generate();
-        let session_pubkey = session_kp.public_key().to_bytes();
         let session_address = session_kp.address();
         let granter = test_addr(0x01);
 
@@ -628,10 +616,14 @@ mod tests {
             10, // expires at height 10
             1_000_000,
         );
-        polay_state::StateWriter::new(&store).set_session(&grant).unwrap();
+        polay_state::StateWriter::new(&store)
+            .set_session(&grant)
+            .unwrap();
 
         // Set chain height to 100 (past expiry).
-        polay_state::StateWriter::new(&store).set_chain_height(100).unwrap();
+        polay_state::StateWriter::new(&store)
+            .set_chain_height(100)
+            .unwrap();
 
         let tx = Transaction {
             chain_id: CHAIN_ID.into(),
@@ -674,7 +666,9 @@ mod tests {
             1_000_000,
         );
         grant.revoked = true;
-        polay_state::StateWriter::new(&store).set_session(&grant).unwrap();
+        polay_state::StateWriter::new(&store)
+            .set_session(&grant)
+            .unwrap();
 
         let tx = Transaction {
             chain_id: CHAIN_ID.into(),
@@ -717,7 +711,9 @@ mod tests {
             10_000,
             1_000_000,
         );
-        polay_state::StateWriter::new(&store).set_session(&grant).unwrap();
+        polay_state::StateWriter::new(&store)
+            .set_session(&grant)
+            .unwrap();
 
         let tx = Transaction {
             chain_id: CHAIN_ID.into(),
@@ -760,7 +756,9 @@ mod tests {
             100, // very low spending limit
         );
         grant.amount_spent = 90; // already spent 90 out of 100
-        polay_state::StateWriter::new(&store).set_session(&grant).unwrap();
+        polay_state::StateWriter::new(&store)
+            .set_session(&grant)
+            .unwrap();
 
         let tx = Transaction {
             chain_id: CHAIN_ID.into(),
@@ -802,7 +800,9 @@ mod tests {
             10_000,
             1_000_000,
         );
-        polay_state::StateWriter::new(&store).set_session(&grant).unwrap();
+        polay_state::StateWriter::new(&store)
+            .set_session(&grant)
+            .unwrap();
 
         let tx = Transaction {
             chain_id: CHAIN_ID.into(),

@@ -6,7 +6,16 @@ use crate::hash::Hash;
 
 /// Lifecycle status of an attestor node.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
 )]
 pub enum AttestorStatus {
     /// The attestor is active and may submit match results.
@@ -19,9 +28,7 @@ pub enum AttestorStatus {
 
 /// An attestor is a trusted game-server oracle that submits verified match
 /// results to the chain.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Attestor {
     /// The attestor's on-chain address.
     pub address: Address,
@@ -46,9 +53,7 @@ impl Attestor {
 }
 
 /// The outcome of a completed game match, as attested by a game-server oracle.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct MatchResult {
     /// Unique match identifier.
     pub match_id: Hash,
@@ -84,9 +89,7 @@ impl MatchResult {
 
 /// Settlement record after a match result has been processed by the execution
 /// layer.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct MatchSettlement {
     /// The match that was settled.
     pub match_id: Hash,

@@ -5,9 +5,7 @@ use crate::address::Address;
 use crate::hash::Hash;
 
 /// Describes the current status of a rental listing.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub enum RentalStatus {
     /// The rental is listed and available to be rented.
     Listed,
@@ -23,9 +21,7 @@ pub enum RentalStatus {
 
 /// An asset rental record — tracks a single asset being rented from an owner
 /// to a renter for a given duration at a per-block price.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Rental {
     /// Content-addressed identifier for this rental.
     pub rental_id: Hash,

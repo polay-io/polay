@@ -4,9 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::address::Address;
 
 /// A player's on-chain profile.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct PlayerProfile {
     /// The player's blockchain address (also the primary key).
     pub address: Address,
@@ -48,9 +46,7 @@ impl PlayerProfile {
 }
 
 /// A soulbound or transferable achievement awarded to a player.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Achievement {
     /// Application-defined unique identifier for this achievement type.
     pub id: String,
@@ -76,13 +72,8 @@ mod tests {
 
     #[test]
     fn reputation_adjustment() {
-        let mut profile = PlayerProfile::new(
-            Address::ZERO,
-            "alice".into(),
-            "Alice".into(),
-            None,
-            1000,
-        );
+        let mut profile =
+            PlayerProfile::new(Address::ZERO, "alice".into(), "Alice".into(), None, 1000);
         assert_eq!(profile.reputation, 0);
         profile.adjust_reputation(10);
         assert_eq!(profile.reputation, 10);
@@ -92,13 +83,7 @@ mod tests {
 
     #[test]
     fn reputation_saturation() {
-        let mut profile = PlayerProfile::new(
-            Address::ZERO,
-            "bob".into(),
-            "Bob".into(),
-            None,
-            0,
-        );
+        let mut profile = PlayerProfile::new(Address::ZERO, "bob".into(), "Bob".into(), None, 0);
         profile.reputation = i64::MAX;
         profile.adjust_reputation(1);
         assert_eq!(profile.reputation, i64::MAX);
@@ -124,13 +109,7 @@ mod tests {
 
     #[test]
     fn borsh_round_trip_profile() {
-        let profile = PlayerProfile::new(
-            Address::ZERO,
-            "dave".into(),
-            "Dave".into(),
-            None,
-            0,
-        );
+        let profile = PlayerProfile::new(Address::ZERO, "dave".into(), "Dave".into(), None, 0);
         let encoded = borsh::to_vec(&profile).unwrap();
         let decoded = PlayerProfile::try_from_slice(&encoded).unwrap();
         assert_eq!(profile, decoded);

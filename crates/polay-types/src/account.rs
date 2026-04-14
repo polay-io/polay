@@ -4,9 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::address::Address;
 
 /// On-chain account state tracking balance and nonce.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct AccountState {
     /// The account's address.
     pub address: Address,

@@ -637,12 +637,7 @@ impl Event {
     }
 
     /// Vote cast on a governance proposal.
-    pub fn vote_cast(
-        proposal_id: &Hash,
-        voter: &Address,
-        option: &str,
-        weight: u64,
-    ) -> Self {
+    pub fn vote_cast(proposal_id: &Hash, voter: &Address, option: &str, weight: u64) -> Self {
         Self::new(
             "governance",
             "vote_cast",
@@ -705,13 +700,7 @@ mod tests {
 
     #[test]
     fn serde_round_trip() {
-        let evt = Event::listing_created(
-            &Hash::ZERO,
-            &Address::ZERO,
-            &Hash::ZERO,
-            5,
-            100,
-        );
+        let evt = Event::listing_created(&Hash::ZERO, &Address::ZERO, &Hash::ZERO, 5, 100);
         let json = serde_json::to_string(&evt).unwrap();
         let parsed: Event = serde_json::from_str(&json).unwrap();
         assert_eq!(evt, parsed);

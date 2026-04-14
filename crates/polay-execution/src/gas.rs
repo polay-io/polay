@@ -174,59 +174,102 @@ mod tests {
     #[test]
     fn all_action_types_have_nonzero_gas() {
         let actions: Vec<TransactionAction> = vec![
-            TransactionAction::Transfer { to: Address::ZERO, amount: 1 },
+            TransactionAction::Transfer {
+                to: Address::ZERO,
+                amount: 1,
+            },
             TransactionAction::CreateAssetClass {
-                name: "X".into(), symbol: "X".into(),
+                name: "X".into(),
+                symbol: "X".into(),
                 asset_type: polay_types::AssetType::Fungible,
-                max_supply: None, metadata_uri: "".into(),
+                max_supply: None,
+                metadata_uri: "".into(),
             },
             TransactionAction::MintAsset {
-                asset_class_id: Hash::ZERO, to: Address::ZERO,
-                amount: 1, metadata: None,
+                asset_class_id: Hash::ZERO,
+                to: Address::ZERO,
+                amount: 1,
+                metadata: None,
             },
             TransactionAction::TransferAsset {
-                asset_class_id: Hash::ZERO, to: Address::ZERO, amount: 1,
+                asset_class_id: Hash::ZERO,
+                to: Address::ZERO,
+                amount: 1,
             },
-            TransactionAction::BurnAsset { asset_class_id: Hash::ZERO, amount: 1 },
+            TransactionAction::BurnAsset {
+                asset_class_id: Hash::ZERO,
+                amount: 1,
+            },
             TransactionAction::CreateListing {
-                asset_class_id: Hash::ZERO, amount: 1,
-                price_per_unit: 1, currency: Hash::ZERO,
+                asset_class_id: Hash::ZERO,
+                amount: 1,
+                price_per_unit: 1,
+                currency: Hash::ZERO,
             },
-            TransactionAction::CancelListing { listing_id: Hash::ZERO },
-            TransactionAction::BuyListing { listing_id: Hash::ZERO },
+            TransactionAction::CancelListing {
+                listing_id: Hash::ZERO,
+            },
+            TransactionAction::BuyListing {
+                listing_id: Hash::ZERO,
+            },
             TransactionAction::CreateProfile {
-                username: "a".into(), display_name: "A".into(), metadata: None,
+                username: "a".into(),
+                display_name: "A".into(),
+                metadata: None,
             },
             TransactionAction::AddAchievement {
-                player: Address::ZERO, achievement_id: "a".into(),
-                name: "A".into(), metadata: "{}".into(),
+                player: Address::ZERO,
+                achievement_id: "a".into(),
+                name: "A".into(),
+                metadata: "{}".into(),
             },
             TransactionAction::UpdateReputation {
-                player: Address::ZERO, delta: 1, reason: "x".into(),
+                player: Address::ZERO,
+                delta: 1,
+                reason: "x".into(),
             },
-            TransactionAction::RegisterValidator { commission_bps: 500 },
-            TransactionAction::DelegateStake { validator: Address::ZERO, amount: 1 },
-            TransactionAction::UndelegateStake { validator: Address::ZERO, amount: 1 },
+            TransactionAction::RegisterValidator {
+                commission_bps: 500,
+            },
+            TransactionAction::DelegateStake {
+                validator: Address::ZERO,
+                amount: 1,
+            },
+            TransactionAction::UndelegateStake {
+                validator: Address::ZERO,
+                amount: 1,
+            },
             TransactionAction::RegisterAttestor {
-                game_id: "g".into(), endpoint: "e".into(), metadata: "{}".into(),
+                game_id: "g".into(),
+                endpoint: "e".into(),
+                metadata: "{}".into(),
             },
             TransactionAction::SubmitMatchResult {
                 match_result: polay_types::MatchResult {
-                    match_id: Hash::ZERO, game_id: "g".into(),
-                    timestamp: 0, players: vec![], scores: vec![],
-                    winners: vec![], reward_pool: 0,
-                    server_signature: vec![], anti_cheat_score: None,
+                    match_id: Hash::ZERO,
+                    game_id: "g".into(),
+                    timestamp: 0,
+                    players: vec![],
+                    scores: vec![],
+                    winners: vec![],
+                    reward_pool: 0,
+                    server_signature: vec![],
+                    anti_cheat_score: None,
                     replay_ref: None,
                 },
             },
             TransactionAction::DistributeReward {
-                match_id: Hash::ZERO, rewards: vec![],
+                match_id: Hash::ZERO,
+                rewards: vec![],
             },
             TransactionAction::SubmitProposal {
                 action: polay_types::ProposalAction::TextProposal {
-                    title: "t".into(), description: "d".into(),
+                    title: "t".into(),
+                    description: "d".into(),
                 },
-                title: "t".into(), description: "d".into(), deposit: 100_000,
+                title: "t".into(),
+                description: "d".into(),
+                deposit: 100_000,
             },
             TransactionAction::VoteProposal {
                 proposal_id: Hash::ZERO,
@@ -248,7 +291,8 @@ mod tests {
 
         for action in &actions {
             assert!(
-                GasSchedule::action_gas(action) > 0 || matches!(action, TransactionAction::DistributeReward { rewards, .. } if rewards.is_empty()),
+                GasSchedule::action_gas(action) > 0
+                    || matches!(action, TransactionAction::DistributeReward { rewards, .. } if rewards.is_empty()),
                 "action {} should have nonzero gas (except empty distribute)",
                 action.label()
             );

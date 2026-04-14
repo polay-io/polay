@@ -1,6 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use polay_crypto::{merkle_root, sha256, sign_transaction, verify_transaction_with_key, PolayKeypair};
+use polay_crypto::{
+    merkle_root, sha256, sign_transaction, verify_transaction_with_key, PolayKeypair,
+};
 use polay_types::{Address, Hash, Transaction, TransactionAction};
 
 fn make_transfer_tx(signer: Address) -> Transaction {
@@ -80,9 +82,7 @@ fn bench_sha256_64kb(c: &mut Criterion) {
 }
 
 fn bench_merkle_root_100(c: &mut Criterion) {
-    let hashes: Vec<Hash> = (0..100u32)
-        .map(|i| sha256(&i.to_le_bytes()))
-        .collect();
+    let hashes: Vec<Hash> = (0..100u32).map(|i| sha256(&i.to_le_bytes())).collect();
     c.bench_function("merkle_root_100", |b| {
         b.iter(|| {
             black_box(merkle_root(black_box(&hashes)));
@@ -91,9 +91,7 @@ fn bench_merkle_root_100(c: &mut Criterion) {
 }
 
 fn bench_merkle_root_1000(c: &mut Criterion) {
-    let hashes: Vec<Hash> = (0..1000u32)
-        .map(|i| sha256(&i.to_le_bytes()))
-        .collect();
+    let hashes: Vec<Hash> = (0..1000u32).map(|i| sha256(&i.to_le_bytes())).collect();
     c.bench_function("merkle_root_1000", |b| {
         b.iter(|| {
             black_box(merkle_root(black_box(&hashes)));
@@ -102,9 +100,7 @@ fn bench_merkle_root_1000(c: &mut Criterion) {
 }
 
 fn bench_merkle_root_10000(c: &mut Criterion) {
-    let hashes: Vec<Hash> = (0..10000u32)
-        .map(|i| sha256(&i.to_le_bytes()))
-        .collect();
+    let hashes: Vec<Hash> = (0..10000u32).map(|i| sha256(&i.to_le_bytes())).collect();
     c.bench_function("merkle_root_10000", |b| {
         b.iter(|| {
             black_box(merkle_root(black_box(&hashes)));

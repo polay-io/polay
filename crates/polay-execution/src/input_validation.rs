@@ -279,7 +279,6 @@ pub fn validate_transaction_input(
         | TransactionAction::RevokeSession { .. } => {}
 
         // -- Rentals --------------------------------------------------------------
-
         TransactionAction::ListForRent {
             asset_class_id,
             asset_id,
@@ -315,16 +314,17 @@ pub fn validate_transaction_input(
             }
         }
 
-        TransactionAction::RentAsset { rental_id, duration } => {
+        TransactionAction::RentAsset {
+            rental_id,
+            duration,
+        } => {
             if rental_id.is_zero() {
                 return Err(ExecutionError::InvalidInput(
                     "rental_id must not be zero".into(),
                 ));
             }
             if *duration == 0 {
-                return Err(ExecutionError::InvalidInput(
-                    "duration must be > 0".into(),
-                ));
+                return Err(ExecutionError::InvalidInput("duration must be > 0".into()));
             }
         }
 
@@ -353,7 +353,6 @@ pub fn validate_transaction_input(
         }
 
         // -- Guilds ---------------------------------------------------------------
-
         TransactionAction::CreateGuild {
             name,
             description,
@@ -435,7 +434,10 @@ pub fn validate_transaction_input(
             }
         }
 
-        TransactionAction::GuildKick { guild_id, member: _ } => {
+        TransactionAction::GuildKick {
+            guild_id,
+            member: _,
+        } => {
             if guild_id.is_zero() {
                 return Err(ExecutionError::InvalidInput(
                     "guild_id must not be zero".into(),
@@ -444,7 +446,6 @@ pub fn validate_transaction_input(
         }
 
         // -- Tournaments ----------------------------------------------------------
-
         TransactionAction::CreateTournament {
             name,
             game_id,
@@ -554,7 +555,7 @@ pub fn validate_transaction_input(
 /// Validate a username: 3-32 chars, alphanumeric + underscore, no leading/trailing underscore.
 fn validate_username(username: &str) -> Result<(), ExecutionError> {
     let len = username.len();
-    if len < 3 || len > 32 {
+    if !(3..=32).contains(&len) {
         return Err(ExecutionError::InvalidInput(format!(
             "username must be 3-32 characters, got {len}"
         )));
@@ -576,10 +577,7 @@ fn validate_username(username: &str) -> Result<(), ExecutionError> {
 }
 
 /// Validate that a serialized transaction does not exceed the maximum size.
-pub fn validate_tx_size(
-    tx: &SignedTransaction,
-    max_size: usize,
-) -> Result<(), ExecutionError> {
+pub fn validate_tx_size(tx: &SignedTransaction, max_size: usize) -> Result<(), ExecutionError> {
     let serialized = borsh::to_vec(&tx.transaction).unwrap_or_default();
     if serialized.len() > max_size {
         return Err(ExecutionError::TransactionTooLarge {
@@ -617,9 +615,8 @@ mod tests {
     use super::*;
     use polay_config::ChainConfig;
     use polay_types::{
-        Address, Hash, Signature, TransactionAction,
-        attestation::MatchResult,
-        governance::ProposalAction,
+        attestation::MatchResult, governance::ProposalAction, Address, Hash, Signature,
+        TransactionAction,
     };
 
     fn config() -> ChainConfig {
@@ -1048,12 +1045,7 @@ mod tests {
             session: None,
             sponsor: None,
         };
-        let stx = SignedTransaction::new(
-            tx,
-            Signature::ZERO,
-            Hash::ZERO,
-            vec![0u8; 32],
-        );
+        let stx = SignedTransaction::new(tx, Signature::ZERO, Hash::ZERO, vec![0u8; 32]);
         // A small limit should reject even a basic tx.
         let result = validate_tx_size(&stx, 10);
         assert!(result.is_err());
@@ -1081,12 +1073,7 @@ mod tests {
             session: None,
             sponsor: None,
         };
-        let stx = SignedTransaction::new(
-            tx,
-            Signature::ZERO,
-            Hash::ZERO,
-            vec![0u8; 32],
-        );
+        let stx = SignedTransaction::new(tx, Signature::ZERO, Hash::ZERO, vec![0u8; 32]);
         assert!(validate_tx_size(&stx, 65_536).is_ok());
     }
 

@@ -37,9 +37,7 @@ pub use error::NetworkError;
 pub use message::{ConsensusVoteMsg, MessageEnvelope, NetworkMessage, PROTOCOL_VERSION};
 pub use peer_manager::{PeerInfo, PeerManager};
 pub use rate_limiter::PeerRateLimiter;
-pub use service::{
-    NetworkHandle, NetworkService, P2PCommand, P2PConfig, P2PEvent, P2PService,
-};
+pub use service::{NetworkHandle, NetworkService, P2PCommand, P2PConfig, P2PEvent, P2PService};
 pub use topics::{TOPIC_BLOCKS, TOPIC_CONSENSUS, TOPIC_TRANSACTIONS};
 
 #[cfg(any(test, feature = "test-utils"))]

@@ -6,8 +6,8 @@
 
 use std::collections::HashSet;
 
-use sha2::Digest;
 use polay_types::{Address, SignedTransaction, TransactionAction};
+use sha2::Digest;
 
 /// Represents the set of state keys a transaction will read or write.
 #[derive(Debug, Clone)]
@@ -95,30 +95,28 @@ pub fn predict_access_set(tx: &SignedTransaction) -> AccessSet {
             // (signer, name) so additional marking is unnecessary.
         }
         TransactionAction::MintAsset {
-            asset_class_id,
-            to,
-            ..
+            asset_class_id, to, ..
         } => {
             set.reads.insert(keys::asset_class_key(asset_class_id));
             set.writes.insert(keys::asset_class_key(asset_class_id)); // total_supply
-            set.reads.insert(keys::asset_balance_key(asset_class_id, to));
-            set.writes.insert(keys::asset_balance_key(asset_class_id, to));
+            set.reads
+                .insert(keys::asset_balance_key(asset_class_id, to));
+            set.writes
+                .insert(keys::asset_balance_key(asset_class_id, to));
         }
         TransactionAction::TransferAsset {
-            asset_class_id,
-            to,
-            ..
+            asset_class_id, to, ..
         } => {
             set.reads
                 .insert(keys::asset_balance_key(asset_class_id, signer));
             set.writes
                 .insert(keys::asset_balance_key(asset_class_id, signer));
-            set.reads.insert(keys::asset_balance_key(asset_class_id, to));
-            set.writes.insert(keys::asset_balance_key(asset_class_id, to));
+            set.reads
+                .insert(keys::asset_balance_key(asset_class_id, to));
+            set.writes
+                .insert(keys::asset_balance_key(asset_class_id, to));
         }
-        TransactionAction::BurnAsset {
-            asset_class_id, ..
-        } => {
+        TransactionAction::BurnAsset { asset_class_id, .. } => {
             set.reads.insert(keys::asset_class_key(asset_class_id));
             set.writes.insert(keys::asset_class_key(asset_class_id));
             set.reads
@@ -126,9 +124,7 @@ pub fn predict_access_set(tx: &SignedTransaction) -> AccessSet {
             set.writes
                 .insert(keys::asset_balance_key(asset_class_id, signer));
         }
-        TransactionAction::CreateListing {
-            asset_class_id, ..
-        } => {
+        TransactionAction::CreateListing { asset_class_id, .. } => {
             set.reads
                 .insert(keys::asset_balance_key(asset_class_id, signer));
             set.writes
@@ -264,55 +260,41 @@ pub fn predict_access_set(tx: &SignedTransaction) -> AccessSet {
         TransactionAction::JoinGuild { guild_id } => {
             set.reads.insert(keys::guild_key(guild_id));
             set.writes.insert(keys::guild_key(guild_id));
-            set.writes
-                .insert(keys::guild_member_key(guild_id, signer));
-            set.writes
-                .insert(keys::member_guilds_key(signer, guild_id));
+            set.writes.insert(keys::guild_member_key(guild_id, signer));
+            set.writes.insert(keys::member_guilds_key(signer, guild_id));
         }
         TransactionAction::LeaveGuild { guild_id } => {
             set.reads.insert(keys::guild_key(guild_id));
             set.writes.insert(keys::guild_key(guild_id));
-            set.reads
-                .insert(keys::guild_member_key(guild_id, signer));
-            set.writes
-                .insert(keys::guild_member_key(guild_id, signer));
-            set.writes
-                .insert(keys::member_guilds_key(signer, guild_id));
+            set.reads.insert(keys::guild_member_key(guild_id, signer));
+            set.writes.insert(keys::guild_member_key(guild_id, signer));
+            set.writes.insert(keys::member_guilds_key(signer, guild_id));
         }
         TransactionAction::GuildDeposit { guild_id, .. } => {
             set.reads.insert(keys::guild_key(guild_id));
             set.writes.insert(keys::guild_key(guild_id));
-            set.reads
-                .insert(keys::guild_member_key(guild_id, signer));
+            set.reads.insert(keys::guild_member_key(guild_id, signer));
         }
         TransactionAction::GuildWithdraw { guild_id, .. } => {
             set.reads.insert(keys::guild_key(guild_id));
             set.writes.insert(keys::guild_key(guild_id));
-            set.reads
-                .insert(keys::guild_member_key(guild_id, signer));
+            set.reads.insert(keys::guild_member_key(guild_id, signer));
         }
         TransactionAction::GuildPromote {
             guild_id, member, ..
         } => {
             set.reads.insert(keys::guild_key(guild_id));
-            set.reads
-                .insert(keys::guild_member_key(guild_id, signer));
-            set.reads
-                .insert(keys::guild_member_key(guild_id, member));
-            set.writes
-                .insert(keys::guild_member_key(guild_id, member));
+            set.reads.insert(keys::guild_member_key(guild_id, signer));
+            set.reads.insert(keys::guild_member_key(guild_id, member));
+            set.writes.insert(keys::guild_member_key(guild_id, member));
         }
         TransactionAction::GuildKick { guild_id, member } => {
             set.reads.insert(keys::guild_key(guild_id));
             set.writes.insert(keys::guild_key(guild_id));
-            set.reads
-                .insert(keys::guild_member_key(guild_id, signer));
-            set.reads
-                .insert(keys::guild_member_key(guild_id, member));
-            set.writes
-                .insert(keys::guild_member_key(guild_id, member));
-            set.writes
-                .insert(keys::member_guilds_key(member, guild_id));
+            set.reads.insert(keys::guild_member_key(guild_id, signer));
+            set.reads.insert(keys::guild_member_key(guild_id, member));
+            set.writes.insert(keys::guild_member_key(guild_id, member));
+            set.writes.insert(keys::member_guilds_key(member, guild_id));
         }
 
         // -- Tournaments --
@@ -330,9 +312,7 @@ pub fn predict_access_set(tx: &SignedTransaction) -> AccessSet {
             set.reads.insert(keys::tournament_key(tournament_id));
             set.writes.insert(keys::tournament_key(tournament_id));
         }
-        TransactionAction::ReportTournamentResults {
-            tournament_id, ..
-        } => {
+        TransactionAction::ReportTournamentResults { tournament_id, .. } => {
             set.reads.insert(keys::tournament_key(tournament_id));
             set.writes.insert(keys::tournament_key(tournament_id));
         }
@@ -455,10 +435,18 @@ mod tests {
             },
         );
         let set = predict_access_set(&stx);
-        assert!(set.writes.contains(&polay_state::keys::balance_key(&addr(1))));
-        assert!(set.writes.contains(&polay_state::keys::balance_key(&addr(2))));
-        assert!(set.writes.contains(&polay_state::keys::account_key(&addr(1))));
-        assert!(set.writes.contains(&polay_state::keys::account_key(&addr(2))));
+        assert!(set
+            .writes
+            .contains(&polay_state::keys::balance_key(&addr(1))));
+        assert!(set
+            .writes
+            .contains(&polay_state::keys::balance_key(&addr(2))));
+        assert!(set
+            .writes
+            .contains(&polay_state::keys::account_key(&addr(1))));
+        assert!(set
+            .writes
+            .contains(&polay_state::keys::account_key(&addr(2))));
     }
 
     #[test]
@@ -475,7 +463,9 @@ mod tests {
         );
         let set = predict_access_set(&stx);
         // At minimum: signer account + balance.
-        assert!(set.writes.contains(&polay_state::keys::account_key(&addr(1))));
+        assert!(set
+            .writes
+            .contains(&polay_state::keys::account_key(&addr(1))));
     }
 
     #[test]
@@ -826,7 +816,11 @@ mod tests {
 
     // -- Sponsor conflict tests -----------------------------------------------
 
-    fn make_sponsored_stx(signer: Address, sponsor: Address, action: TransactionAction) -> SignedTransaction {
+    fn make_sponsored_stx(
+        signer: Address,
+        sponsor: Address,
+        action: TransactionAction,
+    ) -> SignedTransaction {
         SignedTransaction::new(
             Transaction {
                 chain_id: "test".into(),
@@ -914,11 +908,13 @@ mod tests {
         );
         let set = predict_access_set(&tx);
         assert!(
-            set.writes.contains(&polay_state::keys::account_key(&sponsor)),
+            set.writes
+                .contains(&polay_state::keys::account_key(&sponsor)),
             "sponsor account key should be in write set"
         );
         assert!(
-            set.writes.contains(&polay_state::keys::balance_key(&sponsor)),
+            set.writes
+                .contains(&polay_state::keys::balance_key(&sponsor)),
             "sponsor balance key should be in write set"
         );
     }

@@ -5,7 +5,16 @@ use crate::address::Address;
 
 /// Lifecycle status of a validator.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
 )]
 pub enum ValidatorStatus {
     /// Validator is participating in consensus.
@@ -19,9 +28,7 @@ pub enum ValidatorStatus {
 }
 
 /// On-chain state for a validator.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct ValidatorInfo {
     /// The validator's address.
     pub address: Address,
@@ -95,9 +102,7 @@ impl ValidatorInfo {
 }
 
 /// A delegation from a delegator to a validator.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Delegation {
     /// The delegator's address.
     pub delegator: Address,
@@ -149,9 +154,7 @@ impl Delegation {
 /// When a delegator initiates undelegation, the funds are not returned
 /// immediately. Instead, an `UnbondingEntry` is created and the funds
 /// are released only after `completion_height` is reached.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct UnbondingEntry {
     /// The delegator whose funds are being unbonded.
     pub delegator: Address,
@@ -166,9 +169,7 @@ pub struct UnbondingEntry {
 }
 
 /// A record of a slashing event.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct SlashEvent {
     /// The validator that was slashed.
     pub validator: Address,
@@ -185,9 +186,7 @@ pub struct SlashEvent {
 /// This type sets up the data model for a future equivocation detection and
 /// punishment system. Evidence records are stored on-chain and can be used
 /// to trigger automatic slashing.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct EquivocationEvidence {
     /// The validator accused of equivocation.
     pub validator: Address,

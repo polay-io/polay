@@ -21,17 +21,13 @@ impl PolayKeypair {
     /// Generate a new random keypair using the OS random number generator.
     pub fn generate() -> Self {
         let signing_key = ed25519_dalek::SigningKey::generate(&mut OsRng);
-        Self {
-            inner: signing_key,
-        }
+        Self { inner: signing_key }
     }
 
     /// Reconstruct a keypair from 32 secret-key bytes.
     pub fn from_bytes(secret: &[u8; 32]) -> CryptoResult<Self> {
         let signing_key = ed25519_dalek::SigningKey::from_bytes(secret);
-        Ok(Self {
-            inner: signing_key,
-        })
+        Ok(Self { inner: signing_key })
     }
 
     /// Return the public key half of this keypair.
@@ -124,10 +120,7 @@ mod tests {
         let kp2 = PolayKeypair::from_bytes(&secret).unwrap();
 
         assert_eq!(kp1.address(), kp2.address());
-        assert_eq!(
-            kp1.public_key().to_bytes(),
-            kp2.public_key().to_bytes(),
-        );
+        assert_eq!(kp1.public_key().to_bytes(), kp2.public_key().to_bytes(),);
     }
 
     #[test]

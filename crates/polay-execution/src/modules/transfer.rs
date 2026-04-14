@@ -34,12 +34,14 @@ pub fn execute_transfer(
     }
 
     // Debit sender.
-    sender.balance = sender.balance
-        .checked_sub(amount)
-        .ok_or(ExecutionError::InsufficientBalance {
-            required: amount,
-            available: sender.balance,
-        })?;
+    sender.balance =
+        sender
+            .balance
+            .checked_sub(amount)
+            .ok_or(ExecutionError::InsufficientBalance {
+                required: amount,
+                available: sender.balance,
+            })?;
     writer.set_account(&sender)?;
 
     // Credit receiver (create if not exists).
@@ -106,11 +108,17 @@ mod tests {
             .unwrap();
 
         // Receiver has no account yet.
-        assert!(StateView::new(&store).get_account(&receiver).unwrap().is_none());
+        assert!(StateView::new(&store)
+            .get_account(&receiver)
+            .unwrap()
+            .is_none());
 
         execute_transfer(&sender, &receiver, 100, &store, 42).unwrap();
 
-        let recv_acct = StateView::new(&store).get_account(&receiver).unwrap().unwrap();
+        let recv_acct = StateView::new(&store)
+            .get_account(&receiver)
+            .unwrap()
+            .unwrap();
         assert_eq!(recv_acct.balance, 100);
         assert_eq!(recv_acct.created_at, 42);
     }
@@ -126,7 +134,13 @@ mod tests {
             .unwrap();
 
         let err = execute_transfer(&sender, &receiver, 100, &store, 0).unwrap_err();
-        assert!(matches!(err, ExecutionError::InsufficientBalance { required: 100, available: 50 }));
+        assert!(matches!(
+            err,
+            ExecutionError::InsufficientBalance {
+                required: 100,
+                available: 50
+            }
+        ));
     }
 
     #[test]

@@ -157,10 +157,8 @@ impl StateSyncManager {
         }
 
         // Apply each chunk.
-        for maybe_chunk in &self.chunks {
-            if let Some(chunk) = maybe_chunk {
-                SnapshotRestorer::apply_chunk(self.store.as_ref(), chunk)?;
-            }
+        for chunk in self.chunks.iter().flatten() {
+            SnapshotRestorer::apply_chunk(self.store.as_ref(), chunk)?;
         }
 
         // Verify the state root.
@@ -241,8 +239,7 @@ mod tests {
         let source = MemoryStore::new();
         populate_store(&source, 10);
         let state_root = compute_state_root(&source).unwrap().root;
-        let (snapshot, chunks) =
-            SnapshotCreator::create_snapshot(&source, 50, state_root).unwrap();
+        let (snapshot, chunks) = SnapshotCreator::create_snapshot(&source, 50, state_root).unwrap();
 
         // Syncing node: drive the state machine.
         let target = Arc::new(MemoryStore::new());
@@ -289,8 +286,7 @@ mod tests {
         let source = MemoryStore::new();
         populate_store(&source, 15);
         let state_root = compute_state_root(&source).unwrap().root;
-        let (snapshot, chunks) =
-            SnapshotCreator::create_snapshot(&source, 5, state_root).unwrap();
+        let (snapshot, chunks) = SnapshotCreator::create_snapshot(&source, 5, state_root).unwrap();
 
         let target = Arc::new(MemoryStore::new());
         let mut mgr = StateSyncManager::new(target.clone());
@@ -355,8 +351,7 @@ mod tests {
             source.put_raw(&key, &large_val).unwrap();
         }
         let state_root = compute_state_root(&source).unwrap().root;
-        let (snapshot, chunks) =
-            SnapshotCreator::create_snapshot(&source, 1, state_root).unwrap();
+        let (snapshot, chunks) = SnapshotCreator::create_snapshot(&source, 1, state_root).unwrap();
         assert!(chunks.len() >= 2, "need at least 2 chunks for this test");
 
         let target = Arc::new(MemoryStore::new());
@@ -392,8 +387,7 @@ mod tests {
     fn sync_empty_snapshot() {
         let source = MemoryStore::new();
         let state_root = compute_state_root(&source).unwrap().root;
-        let (snapshot, chunks) =
-            SnapshotCreator::create_snapshot(&source, 0, state_root).unwrap();
+        let (snapshot, chunks) = SnapshotCreator::create_snapshot(&source, 0, state_root).unwrap();
 
         let target = Arc::new(MemoryStore::new());
         let mut mgr = StateSyncManager::new(target.clone());

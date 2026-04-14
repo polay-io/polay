@@ -49,10 +49,7 @@ pub enum MempoolError {
 
     /// The transaction's chain_id does not match the expected chain.
     #[error("chain id mismatch: expected {expected}, got {got}")]
-    ChainIdMismatch {
-        expected: String,
-        got: String,
-    },
+    ChainIdMismatch { expected: String, got: String },
 
     /// The transaction has already been seen (duplicate).
     #[error("duplicate transaction")]

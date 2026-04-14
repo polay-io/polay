@@ -12,7 +12,16 @@ use polay_types::signature::Signature;
 
 /// The current step within a single consensus round.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
 )]
 pub enum ConsensusState {
     /// Waiting to start a new round.
@@ -44,9 +53,7 @@ impl std::fmt::Display for ConsensusState {
 // ---------------------------------------------------------------------------
 
 /// A validator identified by address together with its voting weight (stake).
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct ValidatorWeight {
     /// The validator's on-chain address.
     pub address: Address,
@@ -120,7 +127,10 @@ impl ValidatorSet {
     ///
     /// Panics if the validator set is empty.
     pub fn get_proposer(&self, height: u64, round: u32) -> &ValidatorWeight {
-        assert!(!self.validators.is_empty(), "validator set must not be empty");
+        assert!(
+            !self.validators.is_empty(),
+            "validator set must not be empty"
+        );
         let index = ((height as u128 + round as u128) % self.validators.len() as u128) as usize;
         &self.validators[index]
     }
@@ -167,7 +177,16 @@ impl ValidatorSet {
 
 /// Distinguishes prevote messages from precommit messages.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
 )]
 pub enum VoteType {
     /// First voting phase: validators indicate whether they received a valid
@@ -192,9 +211,7 @@ impl std::fmt::Display for VoteType {
 // ---------------------------------------------------------------------------
 
 /// A signed vote cast by a validator during a consensus round.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Vote {
     /// Block height this vote applies to.
     pub height: u64,

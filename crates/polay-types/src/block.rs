@@ -10,9 +10,7 @@ use crate::transaction::SignedTransaction;
 /// The `hash` field is set externally after computing the digest over the
 /// borsh-encoded header bytes (with `hash` set to `Hash::ZERO` during
 /// computation).
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct BlockHeader {
     /// Sequential block number.
     pub height: u64,
@@ -71,9 +69,7 @@ impl BlockHeader {
 }
 
 /// A complete block: header plus the ordered list of signed transactions.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Block {
     /// The block header.
     pub header: BlockHeader,

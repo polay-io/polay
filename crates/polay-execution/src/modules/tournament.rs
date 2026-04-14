@@ -120,12 +120,12 @@ pub fn execute_join_tournament(
                 available: account.balance,
             });
         }
-        account.balance = account.balance
-            .checked_sub(tournament.entry_fee)
-            .ok_or(ExecutionError::InsufficientBalance {
+        account.balance = account.balance.checked_sub(tournament.entry_fee).ok_or(
+            ExecutionError::InsufficientBalance {
                 required: tournament.entry_fee,
                 available: account.balance,
-            })?;
+            },
+        )?;
         writer.set_account(&account)?;
     }
 
@@ -598,14 +598,8 @@ mod tests {
 
         execute_start_tournament(&organizer, &tid, &store, 100).unwrap();
 
-        let events = execute_report_tournament_results(
-            &organizer,
-            &tid,
-            &[p1, p2],
-            &store,
-            150,
-        )
-        .unwrap();
+        let events =
+            execute_report_tournament_results(&organizer, &tid, &[p1, p2], &store, 150).unwrap();
 
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].action, "tournament_results_reported");
@@ -638,14 +632,8 @@ mod tests {
 
         execute_start_tournament(&organizer, &tid, &store, 100).unwrap();
 
-        let err = execute_report_tournament_results(
-            &impostor,
-            &tid,
-            &[p1, p2],
-            &store,
-            150,
-        )
-        .unwrap_err();
+        let err =
+            execute_report_tournament_results(&impostor, &tid, &[p1, p2], &store, 150).unwrap_err();
         assert_eq!(err, ExecutionError::NotOrganizer);
     }
 

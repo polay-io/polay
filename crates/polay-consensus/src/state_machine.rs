@@ -388,8 +388,7 @@ impl ConsensusStateMachine {
     pub fn advance_height(&mut self, new_height: u64) {
         info!(
             old_height = self.height,
-            new_height,
-            "advancing to new height"
+            new_height, "advancing to new height"
         );
         self.height = new_height;
         self.round = 0;
@@ -674,7 +673,13 @@ mod tests {
         };
 
         let err = sm.on_proposal(proposal).unwrap_err();
-        assert!(matches!(err, ConsensusError::WrongHeight { expected: 0, got: 5 }));
+        assert!(matches!(
+            err,
+            ConsensusError::WrongHeight {
+                expected: 0,
+                got: 5
+            }
+        ));
     }
 
     #[test]
@@ -693,7 +698,13 @@ mod tests {
         };
 
         let err = sm.on_proposal(proposal).unwrap_err();
-        assert!(matches!(err, ConsensusError::WrongRound { expected: 0, got: 3 }));
+        assert!(matches!(
+            err,
+            ConsensusError::WrongRound {
+                expected: 0,
+                got: 3
+            }
+        ));
     }
 
     // -----------------------------------------------------------------

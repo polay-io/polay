@@ -38,14 +38,9 @@ pub enum ProposalAction {
         new_value: String,
     },
     /// Add a new attestor to the approved list.
-    ApproveAttestor {
-        address: Address,
-        game_id: String,
-    },
+    ApproveAttestor { address: Address, game_id: String },
     /// Suspend an attestor.
-    SuspendAttestor {
-        address: Address,
-    },
+    SuspendAttestor { address: Address },
     /// Slash a validator with evidence.
     SlashValidator {
         address: Address,
@@ -60,10 +55,7 @@ pub enum ProposalAction {
         reason: String,
     },
     /// Text proposal (no on-chain action, just signaling).
-    TextProposal {
-        title: String,
-        description: String,
-    },
+    TextProposal { title: String, description: String },
 }
 
 // ---------------------------------------------------------------------------

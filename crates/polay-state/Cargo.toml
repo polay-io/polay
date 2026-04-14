@@ -24,3 +24,6 @@ polay-crypto = { workspace = true }
 [[bench]]
 name = "state_bench"
 harness = false
+
+[lints]
+workspace = true

@@ -168,7 +168,12 @@ pub fn execute_transfer_asset(
         "asset transferred"
     );
 
-    Ok(vec![Event::transfer_asset(asset_class_id, signer, to, amount)])
+    Ok(vec![Event::transfer_asset(
+        asset_class_id,
+        signer,
+        to,
+        amount,
+    )])
 }
 
 // ---------------------------------------------------------------------------
@@ -266,7 +271,10 @@ mod tests {
         assert_eq!(events[0].module, "asset");
         assert_eq!(events[0].action, "create_class");
 
-        let ac = StateView::new(&store).get_asset_class(&id).unwrap().unwrap();
+        let ac = StateView::new(&store)
+            .get_asset_class(&id)
+            .unwrap()
+            .unwrap();
         assert_eq!(ac.name, "Gold Coin");
         assert_eq!(ac.symbol, "GLD");
         assert_eq!(ac.creator, creator);
@@ -288,7 +296,10 @@ mod tests {
 
         let view = StateView::new(&store);
         assert_eq!(view.get_asset_balance(&id, &recipient).unwrap(), 500);
-        assert_eq!(view.get_asset_class(&id).unwrap().unwrap().total_supply, 500);
+        assert_eq!(
+            view.get_asset_class(&id).unwrap().unwrap().total_supply,
+            500
+        );
     }
 
     #[test]
@@ -357,7 +368,10 @@ mod tests {
 
         let view = StateView::new(&store);
         assert_eq!(view.get_asset_balance(&id, &alice).unwrap(), 150);
-        assert_eq!(view.get_asset_class(&id).unwrap().unwrap().total_supply, 150);
+        assert_eq!(
+            view.get_asset_class(&id).unwrap().unwrap().total_supply,
+            150
+        );
     }
 
     #[test]

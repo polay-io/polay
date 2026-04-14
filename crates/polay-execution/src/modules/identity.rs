@@ -88,7 +88,11 @@ pub fn execute_add_achievement(
         "achievement awarded"
     );
 
-    Ok(vec![Event::achievement_awarded(player, achievement_id, name)])
+    Ok(vec![Event::achievement_awarded(
+        player,
+        achievement_id,
+        name,
+    )])
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +145,11 @@ pub fn execute_update_reputation(
         "reputation updated"
     );
 
-    Ok(vec![Event::reputation_changed(player, delta, profile.reputation)])
+    Ok(vec![Event::reputation_changed(
+        player,
+        delta,
+        profile.reputation,
+    )])
 }
 
 // ---------------------------------------------------------------------------
@@ -176,9 +184,15 @@ mod tests {
         let store = MemoryStore::new();
         let addr = test_addr(1);
 
-        let events =
-            execute_create_profile(&addr, "alice", "Alice", Some("{\"bio\":\"gamer\"}"), &store, 100)
-                .unwrap();
+        let events = execute_create_profile(
+            &addr,
+            "alice",
+            "Alice",
+            Some("{\"bio\":\"gamer\"}"),
+            &store,
+            100,
+        )
+        .unwrap();
 
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].module, "identity");
@@ -206,9 +220,8 @@ mod tests {
         let non_attestor = test_addr(99);
         let player = test_addr(2);
 
-        let err = execute_add_achievement(
-            &non_attestor, &player, "x", "X", "{}", &store, 500,
-        ).unwrap_err();
+        let err = execute_add_achievement(&non_attestor, &player, "x", "X", "{}", &store, 500)
+            .unwrap_err();
         assert!(matches!(err, ExecutionError::Unauthorized));
     }
 
@@ -248,9 +261,8 @@ mod tests {
         let non_attestor = test_addr(99);
         let player = test_addr(2);
 
-        let err = execute_update_reputation(
-            &non_attestor, &player, 10, "reason", &store, 100,
-        ).unwrap_err();
+        let err = execute_update_reputation(&non_attestor, &player, 10, "reason", &store, 100)
+            .unwrap_err();
         assert!(matches!(err, ExecutionError::Unauthorized));
     }
 
@@ -267,12 +279,18 @@ mod tests {
             execute_update_reputation(&admin, &player, 10, "good behavior", &store, 200).unwrap();
         assert_eq!(events.len(), 1);
 
-        let profile = StateView::new(&store).get_profile(&player).unwrap().unwrap();
+        let profile = StateView::new(&store)
+            .get_profile(&player)
+            .unwrap()
+            .unwrap();
         assert_eq!(profile.reputation, 10);
 
         // Apply negative delta.
         execute_update_reputation(&admin, &player, -25, "toxic", &store, 300).unwrap();
-        let profile = StateView::new(&store).get_profile(&player).unwrap().unwrap();
+        let profile = StateView::new(&store)
+            .get_profile(&player)
+            .unwrap()
+            .unwrap();
         assert_eq!(profile.reputation, -15);
     }
 
@@ -284,11 +302,17 @@ mod tests {
         register_attestor(&store, &admin);
 
         // No profile exists yet.
-        assert!(StateView::new(&store).get_profile(&player).unwrap().is_none());
+        assert!(StateView::new(&store)
+            .get_profile(&player)
+            .unwrap()
+            .is_none());
 
         execute_update_reputation(&admin, &player, 5, "reward", &store, 100).unwrap();
 
-        let profile = StateView::new(&store).get_profile(&player).unwrap().unwrap();
+        let profile = StateView::new(&store)
+            .get_profile(&player)
+            .unwrap()
+            .unwrap();
         assert_eq!(profile.reputation, 5);
         assert_eq!(profile.display_name, "Anonymous");
     }

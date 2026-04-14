@@ -78,8 +78,8 @@ impl RpcServer {
             event_bus,
             submission_throttle: Arc::new(SubmissionThrottle::new(max_per_sec)),
             ip_rate_limiter: Arc::new(IpRateLimiter::new(
-                200,  // 200 requests/sec per IP
-                50,   // 50 concurrent connections per IP
+                200, // 200 requests/sec per IP
+                50,  // 50 concurrent connections per IP
             )),
         }
     }
@@ -415,13 +415,10 @@ pub fn build_rpc_module(ctx: Arc<RpcServer>) -> Result<RpcModule<()>, RpcError> 
     // -----------------------------------------------------------------------
     {
         module
-            .register_async_method(
-                "polay_getAchievements",
-                move |_params, _, _| async move {
-                    // TODO: implement prefix iteration over achievements
-                    ok(Vec::<serde_json::Value>::new())
-                },
-            )
+            .register_async_method("polay_getAchievements", move |_params, _, _| async move {
+                // TODO: implement prefix iteration over achievements
+                ok(Vec::<serde_json::Value>::new())
+            })
             .map_err(|e| RpcError::RegistrationError(e.to_string()))?;
     }
 
@@ -499,10 +496,7 @@ pub fn build_rpc_module(ctx: Arc<RpcServer>) -> Result<RpcModule<()>, RpcError> 
                     // Fetch the latest block to get its timestamp and chain_id.
                     let (chain_id, block_time) = if height > 0 {
                         match view.get_block(height).map_err(state_err)? {
-                            Some(block) => (
-                                block.header.chain_id.clone(),
-                                block.header.timestamp,
-                            ),
+                            Some(block) => (block.header.chain_id.clone(), block.header.timestamp),
                             None => ("polay".to_string(), 0),
                         }
                     } else {
@@ -577,8 +571,8 @@ pub fn build_rpc_module(ctx: Arc<RpcServer>) -> Result<RpcModule<()>, RpcError> 
                             })
                             .unwrap_or_default();
 
-                        let receipt_response = receipt
-                            .map(|r| ReceiptResponse::from_receipt(&r, location.tx_index));
+                        let receipt_response =
+                            receipt.map(|r| ReceiptResponse::from_receipt(&r, location.tx_index));
 
                         return ok(Some(TransactionWithStatus {
                             transaction: tx_value,
@@ -692,8 +686,10 @@ pub fn build_rpc_module(ctx: Arc<RpcServer>) -> Result<RpcModule<()>, RpcError> 
                     let address = parse_address(&address_hex)?;
                     let view = StateView::new(ctx.store.as_ref());
                     let entries = view.get_unbonding_entries(&address).map_err(state_err)?;
-                    let response: Vec<UnbondingEntryResponse> =
-                        entries.into_iter().map(UnbondingEntryResponse::from).collect();
+                    let response: Vec<UnbondingEntryResponse> = entries
+                        .into_iter()
+                        .map(UnbondingEntryResponse::from)
+                        .collect();
                     ok(response)
                 }
             })
@@ -803,9 +799,8 @@ pub fn build_rpc_module(ctx: Arc<RpcServer>) -> Result<RpcModule<()>, RpcError> 
                     let granter_hex: String = params.one()?;
                     let granter = parse_address(&granter_hex)?;
                     let view = StateView::new(ctx.store.as_ref());
-                    let all_sessions = view
-                        .get_sessions_for_granter(&granter)
-                        .map_err(state_err)?;
+                    let all_sessions =
+                        view.get_sessions_for_granter(&granter).map_err(state_err)?;
                     let height = view.get_chain_height().map_err(state_err)?;
                     // Filter to active (not revoked, not expired) sessions.
                     let active: Vec<_> = all_sessions
@@ -1221,9 +1216,9 @@ pub async fn start_rpc_server(
 
     let server = Server::builder()
         .set_http_middleware(middleware)
-        .max_request_body_size(2 * 1024 * 1024)  // 2 MB max request
+        .max_request_body_size(2 * 1024 * 1024) // 2 MB max request
         .max_response_body_size(10 * 1024 * 1024) // 10 MB max response
-        .max_connections(512)                       // 512 concurrent connections
+        .max_connections(512) // 512 concurrent connections
         .build(socket_addr)
         .await
         .map_err(|e| RpcError::ServerStartError(format!("failed to bind RPC server: {e}")))?;
@@ -1243,16 +1238,14 @@ pub async fn start_rpc_server(
 /// Parse a hex string into an [`Address`], returning a jsonrpsee error on
 /// failure.
 fn parse_address(hex: &str) -> Result<Address, ErrorObjectOwned> {
-    Address::from_hex(hex).map_err(|e| {
-        ErrorObjectOwned::owned(-32602, format!("invalid address: {e}"), None::<()>)
-    })
+    Address::from_hex(hex)
+        .map_err(|e| ErrorObjectOwned::owned(-32602, format!("invalid address: {e}"), None::<()>))
 }
 
 /// Parse a hex string into a [`Hash`], returning a jsonrpsee error on failure.
 fn parse_hash(hex: &str) -> Result<Hash, ErrorObjectOwned> {
-    Hash::from_hex(hex).map_err(|e| {
-        ErrorObjectOwned::owned(-32602, format!("invalid hash: {e}"), None::<()>)
-    })
+    Hash::from_hex(hex)
+        .map_err(|e| ErrorObjectOwned::owned(-32602, format!("invalid hash: {e}"), None::<()>))
 }
 
 /// Convert a [`polay_state::StateError`] into a jsonrpsee error object.
@@ -1270,9 +1263,9 @@ mod tests {
     use super::*;
     use polay_mempool::MempoolConfig;
     use polay_state::{MemoryStore, StateWriter};
-    use polay_types::{Event, Signature, Transaction, TransactionAction, TransactionReceipt};
-    use polay_types::transaction::TxLocation;
     use polay_types::block::{Block, BlockHeader};
+    use polay_types::transaction::TxLocation;
+    use polay_types::{Event, Signature, Transaction, TransactionAction, TransactionReceipt};
 
     fn test_addr(byte: u8) -> Address {
         Address::new([byte; 32])
@@ -1282,17 +1275,20 @@ mod tests {
         Hash::new([byte; 32])
     }
 
-    fn make_rpc_module(
-        store: Arc<dyn StateStore>,
-        mempool: Arc<Mempool>,
-    ) -> RpcModule<()> {
+    fn make_rpc_module(store: Arc<dyn StateStore>, mempool: Arc<Mempool>) -> RpcModule<()> {
         let config = ChainConfig::default();
         let event_bus = Arc::new(EventBus::new(64));
         let ctx = Arc::new(RpcServer::new(store, mempool, config, event_bus));
         build_rpc_module(ctx).unwrap()
     }
 
-    fn seed_receipt(store: &dyn StateStore, tx_hash: Hash, height: u64, tx_index: u32, success: bool) {
+    fn seed_receipt(
+        store: &dyn StateStore,
+        tx_hash: Hash,
+        height: u64,
+        tx_index: u32,
+        success: bool,
+    ) {
         let writer = StateWriter::new(store);
         let receipt = if success {
             TransactionReceipt::success(
@@ -1301,18 +1297,35 @@ mod tests {
                 500,
                 21000,
                 test_addr(1),
-                vec![Event::new("bank", "transfer", vec![
-                    ("from".into(), "alice".into()),
-                    ("to".into(), "bob".into()),
-                    ("amount".into(), "1000".into()),
-                ])],
+                vec![Event::new(
+                    "bank",
+                    "transfer",
+                    vec![
+                        ("from".into(), "alice".into()),
+                        ("to".into(), "bob".into()),
+                        ("amount".into(), "1000".into()),
+                    ],
+                )],
             )
         } else {
-            TransactionReceipt::failure(tx_hash, height, 200, 10000, test_addr(1), "execution failed".into())
+            TransactionReceipt::failure(
+                tx_hash,
+                height,
+                200,
+                10000,
+                test_addr(1),
+                "execution failed".into(),
+            )
         };
         writer.set_receipt(&receipt).unwrap();
         writer
-            .set_tx_location(&tx_hash, &TxLocation { block_height: height, tx_index })
+            .set_tx_location(
+                &tx_hash,
+                &TxLocation {
+                    block_height: height,
+                    tx_index,
+                },
+            )
             .unwrap();
     }
 
@@ -1406,10 +1419,8 @@ mod tests {
         seed_block(store.as_ref(), 5, &[tx1, tx2]);
 
         let module = make_rpc_module(store, mempool);
-        let response: Vec<ReceiptResponse> = module
-            .call("polay_getBlockReceipts", [5u64])
-            .await
-            .unwrap();
+        let response: Vec<ReceiptResponse> =
+            module.call("polay_getBlockReceipts", [5u64]).await.unwrap();
 
         assert_eq!(response.len(), 2);
         assert!(response[0].success);
@@ -1432,10 +1443,8 @@ mod tests {
             .unwrap();
 
         let module = make_rpc_module(store, mempool);
-        let response: Vec<EventResponse> = module
-            .call("polay_getBlockEvents", [7u64])
-            .await
-            .unwrap();
+        let response: Vec<EventResponse> =
+            module.call("polay_getBlockEvents", [7u64]).await.unwrap();
 
         assert_eq!(response.len(), 2);
         assert_eq!(response[0].module, "bank");
@@ -1450,10 +1459,8 @@ mod tests {
         let mempool = Arc::new(Mempool::new(MempoolConfig::default()));
 
         let module = make_rpc_module(store, mempool);
-        let response: Vec<EventResponse> = module
-            .call("polay_getBlockEvents", [999u64])
-            .await
-            .unwrap();
+        let response: Vec<EventResponse> =
+            module.call("polay_getBlockEvents", [999u64]).await.unwrap();
 
         assert!(response.is_empty());
     }
@@ -1507,7 +1514,11 @@ mod tests {
 
         let tx_hash = test_hash(0x33);
         seed_receipt(store.as_ref(), tx_hash, 10, 2, true);
-        seed_block(store.as_ref(), 10, &[test_hash(0x11), test_hash(0x22), tx_hash]);
+        seed_block(
+            store.as_ref(),
+            10,
+            &[test_hash(0x11), test_hash(0x22), tx_hash],
+        );
 
         let module = make_rpc_module(store, mempool);
         let response: Option<TransactionWithStatus> = module
@@ -1545,10 +1556,8 @@ mod tests {
         let mempool = Arc::new(Mempool::new(MempoolConfig::default()));
 
         let module = make_rpc_module(store, mempool);
-        let response: crate::types::HealthResponse = module
-            .call("polay_health", Vec::<()>::new())
-            .await
-            .unwrap();
+        let response: crate::types::HealthResponse =
+            module.call("polay_health", Vec::<()>::new()).await.unwrap();
 
         assert_eq!(response.status, "healthy");
         assert_eq!(response.height, 0);

@@ -60,8 +60,7 @@ impl BlockProposer {
         };
 
         // Compute the block hash (domain-separated).
-        let block_hash = hash_block_header(&header)
-            .expect("block header hashing must not fail");
+        let block_hash = hash_block_header(&header).expect("block header hashing must not fail");
         header.hash = block_hash;
 
         Block::new(header, transactions)

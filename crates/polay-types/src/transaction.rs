@@ -19,10 +19,7 @@ use crate::signature::Signature;
 pub enum TransactionAction {
     // -- Token transfers ---------------------------------------------------
     /// Transfer native tokens from the signer to `to`.
-    Transfer {
-        to: Address,
-        amount: u64,
-    },
+    Transfer { to: Address, amount: u64 },
 
     // -- Asset management --------------------------------------------------
     /// Create a new asset class (fungible, NFT, or semi-fungible).
@@ -50,10 +47,7 @@ pub enum TransactionAction {
     },
 
     /// Burn (destroy) asset units owned by the signer.
-    BurnAsset {
-        asset_class_id: Hash,
-        amount: u64,
-    },
+    BurnAsset { asset_class_id: Hash, amount: u64 },
 
     // -- Marketplace -------------------------------------------------------
     /// List assets for sale at a fixed price.
@@ -65,15 +59,11 @@ pub enum TransactionAction {
     },
 
     /// Cancel an active listing. Only the seller may do this.
-    CancelListing {
-        listing_id: Hash,
-    },
+    CancelListing { listing_id: Hash },
 
     /// Purchase an active listing. The full price is transferred from the
     /// buyer to the seller minus royalties.
-    BuyListing {
-        listing_id: Hash,
-    },
+    BuyListing { listing_id: Hash },
 
     // -- Identity / social -------------------------------------------------
     /// Create an on-chain player profile.
@@ -100,21 +90,13 @@ pub enum TransactionAction {
 
     // -- Staking / consensus -----------------------------------------------
     /// Register the signer as a validator.
-    RegisterValidator {
-        commission_bps: u16,
-    },
+    RegisterValidator { commission_bps: u16 },
 
     /// Delegate native tokens to a validator.
-    DelegateStake {
-        validator: Address,
-        amount: u64,
-    },
+    DelegateStake { validator: Address, amount: u64 },
 
     /// Begin undelegating tokens from a validator (starts cooldown).
-    UndelegateStake {
-        validator: Address,
-        amount: u64,
-    },
+    UndelegateStake { validator: Address, amount: u64 },
 
     // -- Game attestation --------------------------------------------------
     /// Register the signer as an attestor for a specific game.
@@ -125,9 +107,7 @@ pub enum TransactionAction {
     },
 
     /// Submit a verified match result (only authorized attestors).
-    SubmitMatchResult {
-        match_result: MatchResult,
-    },
+    SubmitMatchResult { match_result: MatchResult },
 
     /// Distribute rewards from a settled match.
     DistributeReward {
@@ -151,9 +131,7 @@ pub enum TransactionAction {
     },
 
     /// Execute a passed governance proposal after voting ends.
-    ExecuteProposal {
-        proposal_id: Hash,
-    },
+    ExecuteProposal { proposal_id: Hash },
 
     // -- Session keys ---------------------------------------------------------
     /// Create a session key -- must be signed by the account owner.
@@ -175,7 +153,6 @@ pub enum TransactionAction {
     },
 
     // -- Asset Rentals --------------------------------------------------------
-
     /// List an asset for rent at a per-block price with a required deposit.
     ListForRent {
         asset_class_id: Hash,
@@ -187,28 +164,18 @@ pub enum TransactionAction {
     },
 
     /// Rent an asset that is currently listed.
-    RentAsset {
-        rental_id: Hash,
-        duration: u64,
-    },
+    RentAsset { rental_id: Hash, duration: u64 },
 
     /// Return a rented asset before it expires.
-    ReturnRental {
-        rental_id: Hash,
-    },
+    ReturnRental { rental_id: Hash },
 
     /// Claim an asset back from an expired rental (owner action).
-    ClaimExpiredRental {
-        rental_id: Hash,
-    },
+    ClaimExpiredRental { rental_id: Hash },
 
     /// Cancel a rental listing that has not yet been rented.
-    CancelRentalListing {
-        rental_id: Hash,
-    },
+    CancelRentalListing { rental_id: Hash },
 
     // -- Guilds ---------------------------------------------------------------
-
     /// Create a new guild. The signer becomes the leader.
     CreateGuild {
         name: String,
@@ -217,26 +184,16 @@ pub enum TransactionAction {
     },
 
     /// Join an existing guild as a regular member.
-    JoinGuild {
-        guild_id: Hash,
-    },
+    JoinGuild { guild_id: Hash },
 
     /// Leave a guild the signer is currently a member of.
-    LeaveGuild {
-        guild_id: Hash,
-    },
+    LeaveGuild { guild_id: Hash },
 
     /// Deposit native tokens into the guild treasury.
-    GuildDeposit {
-        guild_id: Hash,
-        amount: u64,
-    },
+    GuildDeposit { guild_id: Hash, amount: u64 },
 
     /// Withdraw native tokens from the guild treasury (leader/officer only).
-    GuildWithdraw {
-        guild_id: Hash,
-        amount: u64,
-    },
+    GuildWithdraw { guild_id: Hash, amount: u64 },
 
     /// Promote a guild member to a new role (leader only).
     GuildPromote {
@@ -246,13 +203,9 @@ pub enum TransactionAction {
     },
 
     /// Kick a member from the guild (leader/officer only).
-    GuildKick {
-        guild_id: Hash,
-        member: Address,
-    },
+    GuildKick { guild_id: Hash, member: Address },
 
     // -- Tournaments ----------------------------------------------------------
-
     /// Create a new tournament with an entry fee and prize distribution.
     CreateTournament {
         name: String,
@@ -265,14 +218,10 @@ pub enum TransactionAction {
     },
 
     /// Join a tournament that is in the registration phase.
-    JoinTournament {
-        tournament_id: Hash,
-    },
+    JoinTournament { tournament_id: Hash },
 
     /// Start a tournament once enough participants have registered.
-    StartTournament {
-        tournament_id: Hash,
-    },
+    StartTournament { tournament_id: Hash },
 
     /// Report final rankings for a completed tournament (organizer only).
     ReportTournamentResults {
@@ -281,14 +230,10 @@ pub enum TransactionAction {
     },
 
     /// Claim a tournament prize based on ranking.
-    ClaimTournamentPrize {
-        tournament_id: Hash,
-    },
+    ClaimTournamentPrize { tournament_id: Hash },
 
     /// Cancel a tournament and refund all entry fees.
-    CancelTournament {
-        tournament_id: Hash,
-    },
+    CancelTournament { tournament_id: Hash },
 }
 
 impl TransactionAction {
@@ -480,7 +425,14 @@ pub struct TransactionReceipt {
 
 impl TransactionReceipt {
     /// Create a receipt for a successful transaction.
-    pub fn success(tx_hash: Hash, block_height: u64, fee_used: u64, gas_used: u64, fee_payer: Address, events: Vec<Event>) -> Self {
+    pub fn success(
+        tx_hash: Hash,
+        block_height: u64,
+        fee_used: u64,
+        gas_used: u64,
+        fee_payer: Address,
+        events: Vec<Event>,
+    ) -> Self {
         Self {
             tx_hash,
             block_height,
@@ -619,7 +571,8 @@ mod tests {
 
     #[test]
     fn receipt_success() {
-        let receipt = TransactionReceipt::success(Hash::ZERO, 100, 500, 21000, Address::ZERO, vec![]);
+        let receipt =
+            TransactionReceipt::success(Hash::ZERO, 100, 500, 21000, Address::ZERO, vec![]);
         assert!(receipt.success);
         assert!(receipt.error.is_none());
         assert_eq!(receipt.gas_used, 21000);
@@ -628,7 +581,8 @@ mod tests {
 
     #[test]
     fn receipt_failure() {
-        let receipt = TransactionReceipt::failure(Hash::ZERO, 100, 200, 21000, Address::ZERO, "boom".into());
+        let receipt =
+            TransactionReceipt::failure(Hash::ZERO, 100, 200, 21000, Address::ZERO, "boom".into());
         assert!(!receipt.success);
         assert_eq!(receipt.error.as_deref(), Some("boom"));
         assert_eq!(receipt.gas_used, 21000);

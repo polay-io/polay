@@ -146,12 +146,12 @@ pub fn execute_rent_asset(
     }
 
     // Deduct total cost from renter.
-    renter_account.balance = renter_account.balance
-        .checked_sub(total_cost)
-        .ok_or(ExecutionError::InsufficientBalance {
+    renter_account.balance = renter_account.balance.checked_sub(total_cost).ok_or(
+        ExecutionError::InsufficientBalance {
             required: total_cost,
             available: renter_account.balance,
-        })?;
+        },
+    )?;
     writer.set_account(&renter_account)?;
 
     // Credit rental cost (price_per_block * duration) to owner immediately.
@@ -217,11 +217,7 @@ pub fn execute_return_rental(
 
     // Calculate refund for remaining blocks.
     let end_height = rental.end_height.unwrap_or(block_height);
-    let remaining_blocks = if block_height < end_height {
-        end_height - block_height
-    } else {
-        0
-    };
+    let remaining_blocks = end_height.saturating_sub(block_height);
     let rental_refund = remaining_blocks.saturating_mul(rental.price_per_block);
     let total_refund = rental_refund.saturating_add(rental.deposit);
 
@@ -372,6 +368,7 @@ mod tests {
     /// - An asset class created by `owner` (addr byte 1)
     /// - Owner has 100 units of the asset
     /// - Owner has an account with 50_000 native balance
+    ///
     /// Returns (asset_class_id, asset_id) where asset_id == asset_class_id for simplicity.
     fn setup_store(store: &MemoryStore) -> (Hash, Hash) {
         let owner = test_addr(1);
@@ -583,8 +580,7 @@ mod tests {
         let renter_before = view.get_account(&renter).unwrap().unwrap().balance;
 
         // Claim at block 1050 (exactly at end_height).
-        let events =
-            execute_claim_expired_rental(&owner, &rental_id, &store, 1050).unwrap();
+        let events = execute_claim_expired_rental(&owner, &rental_id, &store, 1050).unwrap();
 
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].action, "rental_expired");

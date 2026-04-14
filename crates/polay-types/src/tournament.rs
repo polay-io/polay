@@ -5,9 +5,7 @@ use crate::address::Address;
 use crate::hash::Hash;
 
 /// Describes the current status of a tournament.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub enum TournamentStatus {
     /// The tournament is accepting registrations.
     Registration,
@@ -21,9 +19,7 @@ pub enum TournamentStatus {
 
 /// An on-chain tournament — tracks participants, prize pools, rankings, and
 /// prize distribution.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Tournament {
     /// Content-addressed identifier for this tournament.
     pub tournament_id: Hash,

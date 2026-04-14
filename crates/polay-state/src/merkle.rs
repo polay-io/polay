@@ -129,14 +129,18 @@ impl MerkleTree {
 
         while layer.len() > 1 {
             // Duplicate the last element if the layer is odd-length.
-            if layer.len() % 2 != 0 {
+            if !layer.len().is_multiple_of(2) {
                 let last = *layer.last().unwrap();
                 layer.push(last);
             }
 
             // Determine sibling.
-            let sibling_idx = if idx % 2 == 0 { idx + 1 } else { idx - 1 };
-            let side = if idx % 2 == 0 {
+            let sibling_idx = if idx.is_multiple_of(2) {
+                idx + 1
+            } else {
+                idx - 1
+            };
+            let side = if idx.is_multiple_of(2) {
                 Side::Right
             } else {
                 Side::Left
@@ -189,7 +193,7 @@ impl MerkleTree {
     /// duplicated before hashing.
     fn hash_layer(layer: &[Hash]) -> Vec<Hash> {
         let mut padded;
-        let input = if layer.len() % 2 != 0 {
+        let input = if !layer.len().is_multiple_of(2) {
             padded = layer.to_vec();
             padded.push(*layer.last().unwrap());
             &padded
@@ -198,7 +202,7 @@ impl MerkleTree {
             layer
         };
 
-        let mut next = Vec::with_capacity((input.len() + 1) / 2);
+        let mut next = Vec::with_capacity(input.len().div_ceil(2));
         for pair in input.chunks(2) {
             next.push(hash_pair(&pair[0], &pair[1]));
         }
@@ -426,7 +430,10 @@ mod tests {
 
         // Add an account balance.
         store
-            .put_raw(&keys::balance_key(&polay_types::Address::new([1u8; 32])), b"some-value")
+            .put_raw(
+                &keys::balance_key(&polay_types::Address::new([1u8; 32])),
+                b"some-value",
+            )
             .unwrap();
         let root_one = compute_state_root(&store).unwrap();
 
@@ -435,7 +442,10 @@ mod tests {
 
         // Add another entry.
         store
-            .put_raw(&keys::balance_key(&polay_types::Address::new([2u8; 32])), b"other")
+            .put_raw(
+                &keys::balance_key(&polay_types::Address::new([2u8; 32])),
+                b"other",
+            )
             .unwrap();
         let root_two = compute_state_root(&store).unwrap();
 
@@ -466,9 +476,7 @@ mod tests {
 
         // Add chain metadata (should NOT affect state root).
         store.put_raw(&keys::chain_height_key(), b"1").unwrap();
-        store
-            .put_raw(&keys::latest_hash_key(), &[0u8; 32])
-            .unwrap();
+        store.put_raw(&keys::latest_hash_key(), &[0u8; 32]).unwrap();
         store.put_raw(&keys::block_key(1), b"block-data").unwrap();
 
         let commitment = compute_state_root(&store).unwrap();
@@ -484,15 +492,9 @@ mod tests {
         let addr1 = polay_types::Address::new([1u8; 32]);
         let addr2 = polay_types::Address::new([2u8; 32]);
 
-        store
-            .put_raw(&keys::balance_key(&addr1), b"100")
-            .unwrap();
-        store
-            .put_raw(&keys::balance_key(&addr2), b"200")
-            .unwrap();
-        store
-            .put_raw(&keys::account_key(&addr1), b"acct")
-            .unwrap();
+        store.put_raw(&keys::balance_key(&addr1), b"100").unwrap();
+        store.put_raw(&keys::balance_key(&addr2), b"200").unwrap();
+        store.put_raw(&keys::account_key(&addr1), b"acct").unwrap();
 
         let results = store.prefix_scan(&[keys::PREFIX_BALANCE]).unwrap();
         assert_eq!(results.len(), 2);
@@ -520,15 +522,9 @@ mod tests {
         let addr1 = polay_types::Address::new([1u8; 32]);
         let addr2 = polay_types::Address::new([2u8; 32]);
 
-        store
-            .put_raw(&keys::balance_key(&addr1), b"100")
-            .unwrap();
-        store
-            .put_raw(&keys::balance_key(&addr2), b"200")
-            .unwrap();
-        store
-            .put_raw(&keys::account_key(&addr1), b"acct")
-            .unwrap();
+        store.put_raw(&keys::balance_key(&addr1), b"100").unwrap();
+        store.put_raw(&keys::balance_key(&addr2), b"200").unwrap();
+        store.put_raw(&keys::account_key(&addr1), b"acct").unwrap();
 
         let results = store.prefix_scan(&[keys::PREFIX_BALANCE]).unwrap();
         assert_eq!(results.len(), 2);

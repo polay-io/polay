@@ -303,7 +303,9 @@ mod tests {
         chain.init_from_genesis(&genesis).unwrap();
 
         // Bump height to simulate an already-running chain.
-        StateWriter::new(store.as_ref()).set_chain_height(5).unwrap();
+        StateWriter::new(store.as_ref())
+            .set_chain_height(5)
+            .unwrap();
 
         // Second call should be a no-op (height > 0).
         chain.init_from_genesis(&genesis).unwrap();
@@ -361,12 +363,26 @@ mod tests {
         let tx_hash_1 = Hash::new([0x11; 32]);
         let tx_hash_2 = Hash::new([0x22; 32]);
         let receipts = vec![
-            TransactionReceipt::success(tx_hash_1, 1, 500, 21000, Address::ZERO, vec![
-                polay_types::Event::new("bank", "transfer", vec![
-                    ("amount".into(), "100".into()),
-                ]),
-            ]),
-            TransactionReceipt::failure(tx_hash_2, 1, 200, 10000, Address::ZERO, "some error".into()),
+            TransactionReceipt::success(
+                tx_hash_1,
+                1,
+                500,
+                21000,
+                Address::ZERO,
+                vec![polay_types::Event::new(
+                    "bank",
+                    "transfer",
+                    vec![("amount".into(), "100".into())],
+                )],
+            ),
+            TransactionReceipt::failure(
+                tx_hash_2,
+                1,
+                200,
+                10000,
+                Address::ZERO,
+                "some error".into(),
+            ),
         ];
 
         chain.apply_block(&block, &receipts).unwrap();
@@ -451,17 +467,28 @@ mod tests {
             1_700_000_000,
         );
 
-        let evt1 = polay_types::Event::new("bank", "transfer", vec![
-            ("amount".into(), "100".into()),
-        ]);
-        let evt2 = polay_types::Event::new("asset", "mint", vec![
-            ("amount".into(), "50".into()),
-        ]);
+        let evt1 =
+            polay_types::Event::new("bank", "transfer", vec![("amount".into(), "100".into())]);
+        let evt2 = polay_types::Event::new("asset", "mint", vec![("amount".into(), "50".into())]);
         let evt3 = polay_types::Event::new("market", "listing_created", vec![]);
 
         let receipts = vec![
-            TransactionReceipt::success(Hash::new([0x11; 32]), 3, 100, 1000, Address::ZERO, vec![evt1.clone(), evt2.clone()]),
-            TransactionReceipt::success(Hash::new([0x22; 32]), 3, 200, 2000, Address::ZERO, vec![evt3.clone()]),
+            TransactionReceipt::success(
+                Hash::new([0x11; 32]),
+                3,
+                100,
+                1000,
+                Address::ZERO,
+                vec![evt1.clone(), evt2.clone()],
+            ),
+            TransactionReceipt::success(
+                Hash::new([0x22; 32]),
+                3,
+                200,
+                2000,
+                Address::ZERO,
+                vec![evt3.clone()],
+            ),
         ];
 
         chain.apply_block(&block, &receipts).unwrap();

@@ -46,7 +46,7 @@ fn bench_mempool_insert(c: &mut Criterion) {
             let pool = bench_pool();
             let tx = make_tx(0xAA, 0, 5_000, counter);
             counter = counter.wrapping_add(1);
-            black_box(pool.insert(tx).unwrap());
+            let _ = black_box(pool.insert(tx));
         });
     });
 }
@@ -96,7 +96,12 @@ fn bench_mempool_remove_batch_100(c: &mut Criterion) {
                 for i in 0..1000u16 {
                     let sender_byte = ((i / 100) as u8).wrapping_add(1);
                     let nonce = (i % 100) as u64;
-                    let tx = make_tx(sender_byte, nonce, 5_000 + (i as u64), i.wrapping_add(offset));
+                    let tx = make_tx(
+                        sender_byte,
+                        nonce,
+                        5_000 + (i as u64),
+                        i.wrapping_add(offset),
+                    );
                     if i < 100 {
                         hashes.push(tx.tx_hash);
                     }

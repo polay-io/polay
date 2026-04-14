@@ -121,7 +121,19 @@ async fn main() -> Result<()> {
             log_level,
             p2p_addr,
             boot_nodes,
-        } => cmd_run(genesis, data_dir, rpc_addr, validator_key, block_time, log_level, p2p_addr, boot_nodes).await,
+        } => {
+            cmd_run(
+                genesis,
+                data_dir,
+                rpc_addr,
+                validator_key,
+                block_time,
+                log_level,
+                p2p_addr,
+                boot_nodes,
+            )
+            .await
+        }
         Commands::Init {
             output,
             validators,
@@ -151,20 +163,15 @@ async fn cmd_run(
     boot_nodes: Option<String>,
 ) -> Result<()> {
     // Initialize tracing.
-    let filter = EnvFilter::try_new(&log_level)
-        .unwrap_or_else(|_| EnvFilter::new("info"));
-    tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .init();
+    let filter = EnvFilter::try_new(&log_level).unwrap_or_else(|_| EnvFilter::new("info"));
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
     info!("starting POLAY node");
 
     // Load genesis.
     let genesis = Genesis::load(&genesis_path)
         .with_context(|| format!("failed to load genesis from {:?}", genesis_path))?;
-    genesis
-        .validate()
-        .context("genesis validation failed")?;
+    genesis.validate().context("genesis validation failed")?;
     info!(
         chain_id = %genesis.chain_config.chain_id,
         validators = genesis.validators.len(),
@@ -191,17 +198,28 @@ async fn cmd_run(
 
     // Create the validator node.
     let chain_config = genesis.chain_config.clone();
-    let mut node = ValidatorNode::new(Arc::clone(&store) as Arc<dyn polay_state::StateStore>, &genesis, keypair, chain_config)
-        .context("failed to initialize validator node")?;
+    let mut node = ValidatorNode::new(
+        Arc::clone(&store) as Arc<dyn polay_state::StateStore>,
+        &genesis,
+        keypair,
+        chain_config,
+    )
+    .context("failed to initialize validator node")?;
     node.set_event_bus(Arc::clone(&event_bus));
 
     // Start the RPC server (HTTP + WebSocket).
     let rpc_store = node.store_arc();
     let rpc_mempool = node.mempool();
     let rpc_chain_config = genesis.chain_config.clone();
-    let rpc_handle = start_rpc_server(&rpc_addr, rpc_store, rpc_mempool, rpc_chain_config, Arc::clone(&event_bus))
-        .await
-        .map_err(|e| anyhow::anyhow!("failed to start RPC server: {}", e))?;
+    let rpc_handle = start_rpc_server(
+        &rpc_addr,
+        rpc_store,
+        rpc_mempool,
+        rpc_chain_config,
+        Arc::clone(&event_bus),
+    )
+    .await
+    .map_err(|e| anyhow::anyhow!("failed to start RPC server: {}", e))?;
     info!(addr = %rpc_addr, "RPC server started (HTTP + WS)");
 
     // Determine whether to run in P2P multi-validator mode.
@@ -210,7 +228,12 @@ async fn cmd_run(
     if use_p2p {
         let listen_addr = p2p_addr.unwrap_or_else(|| "/ip4/0.0.0.0/tcp/30333".to_string());
         let boot_node_list: Vec<String> = boot_nodes
-            .map(|s| s.split(',').map(|b| b.trim().to_string()).filter(|b| !b.is_empty()).collect())
+            .map(|s| {
+                s.split(',')
+                    .map(|b| b.trim().to_string())
+                    .filter(|b| !b.is_empty())
+                    .collect()
+            })
             .unwrap_or_default();
 
         info!(%listen_addr, boot_nodes = boot_node_list.len(), "starting P2P networking");
@@ -230,7 +253,11 @@ async fn cmd_run(
 
         // Initialize consensus with the genesis validator set.
         let validator_set = ValidatorNode::validator_set_from_genesis(&genesis);
-        info!(validators = validator_set.len(), total_stake = validator_set.total_stake, "consensus initialized from genesis");
+        info!(
+            validators = validator_set.len(),
+            total_stake = validator_set.total_stake,
+            "consensus initialized from genesis"
+        );
         node.init_consensus(validator_set);
     }
 
@@ -254,7 +281,9 @@ async fn cmd_run(
     info!("shutting down...");
 
     // Stop the RPC server.
-    rpc_handle.stop().map_err(|e| anyhow::anyhow!("RPC shutdown error: {}", e))?;
+    rpc_handle
+        .stop()
+        .map_err(|e| anyhow::anyhow!("RPC shutdown error: {}", e))?;
 
     // Abort the validator loop.
     validator_task.abort();
@@ -418,8 +447,7 @@ fn load_keypair(path: &PathBuf) -> Result<PolayKeypair> {
     let hex_str = std::fs::read_to_string(path)
         .with_context(|| format!("failed to read key file {:?}", path))?;
     let hex_str = hex_str.trim();
-    let bytes = hex::decode(hex_str)
-        .with_context(|| "key file does not contain valid hex")?;
+    let bytes = hex::decode(hex_str).with_context(|| "key file does not contain valid hex")?;
     if bytes.len() != 32 {
         anyhow::bail!(
             "expected 32 secret key bytes, got {} (from {:?})",

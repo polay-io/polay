@@ -257,9 +257,15 @@ mod tests {
         let val_addr = test_addr(10);
 
         // Three accounts with balances.
-        writer.set_account(&AccountState::with_balance(addr_a, 1000, 0)).unwrap();
-        writer.set_account(&AccountState::with_balance(addr_b, 2000, 0)).unwrap();
-        writer.set_account(&AccountState::with_balance(addr_c, 3000, 0)).unwrap();
+        writer
+            .set_account(&AccountState::with_balance(addr_a, 1000, 0))
+            .unwrap();
+        writer
+            .set_account(&AccountState::with_balance(addr_b, 2000, 0))
+            .unwrap();
+        writer
+            .set_account(&AccountState::with_balance(addr_c, 3000, 0))
+            .unwrap();
 
         // Validator with some stake.
         let mut v = ValidatorInfo::new(val_addr, 500);
@@ -270,12 +276,8 @@ mod tests {
         let validators = vec![val_addr];
 
         // No SupplyInfo — should pass and report sums.
-        let result = StateInvariantChecker::check_supply_invariant(
-            &store,
-            &accounts,
-            &validators,
-        )
-        .unwrap();
+        let result =
+            StateInvariantChecker::check_supply_invariant(&store, &accounts, &validators).unwrap();
         assert!(result.passed);
         assert!(result.details.contains("sum=10000"));
     }
@@ -349,7 +351,9 @@ mod tests {
         )
         .unwrap();
         assert!(!result.passed);
-        assert!(result.details.contains("delegation_total=5000 > stake=1000"));
+        assert!(result
+            .details
+            .contains("delegation_total=5000 > stake=1000"));
     }
 
     #[test]
@@ -360,17 +364,14 @@ mod tests {
         let addr_a = test_addr(1);
         let val_addr = test_addr(10);
 
-        writer.set_account(&AccountState::with_balance(addr_a, 1000, 0)).unwrap();
+        writer
+            .set_account(&AccountState::with_balance(addr_a, 1000, 0))
+            .unwrap();
         let mut v = ValidatorInfo::new(val_addr, 500);
         v.stake = 2000;
         writer.set_validator(&v).unwrap();
 
-        let results = StateInvariantChecker::check_all(
-            &store,
-            &[addr_a],
-            &[val_addr],
-            &[],
-        );
+        let results = StateInvariantChecker::check_all(&store, &[addr_a], &[val_addr], &[]);
         assert_eq!(results.len(), 3);
         assert!(results.iter().all(|r| r.passed));
     }

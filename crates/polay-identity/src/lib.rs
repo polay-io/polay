@@ -114,7 +114,7 @@ impl IdentityModule {
     pub fn validate_username(username: &str) -> IdentityResult<()> {
         let len = username.len();
 
-        if len < 3 || len > 32 {
+        if !(3..=32).contains(&len) {
             return Err(IdentityError::InvalidUsername(format!(
                 "username must be 3-32 characters, got {}",
                 len
@@ -126,8 +126,7 @@ impl IdentityModule {
             .all(|c| c.is_ascii_alphanumeric() || c == '_')
         {
             return Err(IdentityError::InvalidUsername(
-                "username may only contain alphanumeric characters and underscores"
-                    .to_string(),
+                "username may only contain alphanumeric characters and underscores".to_string(),
             ));
         }
 
@@ -367,8 +366,7 @@ mod tests {
     #[test]
     fn get_player_summary_no_profile() {
         let store = MemoryStore::new();
-        let summary =
-            IdentityModule::get_player_summary(&store, &test_addr(1)).unwrap();
+        let summary = IdentityModule::get_player_summary(&store, &test_addr(1)).unwrap();
         assert!(summary.is_none());
     }
 
@@ -377,18 +375,14 @@ mod tests {
         let store = MemoryStore::new();
         let addr = test_addr(1);
 
-        let mut profile = PlayerProfile::new(
-            addr,
-            "alice".to_string(),
-            "Alice".to_string(),
-            None,
-            100,
-        );
+        let mut profile =
+            PlayerProfile::new(addr, "alice".to_string(), "Alice".to_string(), None, 100);
         profile.adjust_reputation(250); // Bronze level
         StateWriter::new(&store).set_profile(&profile).unwrap();
 
-        let summary =
-            IdentityModule::get_player_summary(&store, &addr).unwrap().unwrap();
+        let summary = IdentityModule::get_player_summary(&store, &addr)
+            .unwrap()
+            .unwrap();
         assert_eq!(summary.address, addr);
         assert_eq!(summary.username, "alice");
         assert_eq!(summary.display_name, "Alice");
@@ -412,8 +406,9 @@ mod tests {
         profile.adjust_reputation(-50);
         StateWriter::new(&store).set_profile(&profile).unwrap();
 
-        let summary =
-            IdentityModule::get_player_summary(&store, &addr).unwrap().unwrap();
+        let summary = IdentityModule::get_player_summary(&store, &addr)
+            .unwrap()
+            .unwrap();
         assert_eq!(summary.reputation, -50);
         assert_eq!(summary.reputation_level, ReputationLevel::Negative);
     }

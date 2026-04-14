@@ -108,7 +108,11 @@ fn bench_execute_transfer(c: &mut Criterion) {
                     .set_account(&AccountState::with_balance(kp.address(), u64::MAX / 2, i))
                     .unwrap();
                 let start = std::time::Instant::now();
-                black_box(executor.execute_transaction(&stx, &store, 1).unwrap());
+                black_box(
+                    executor
+                        .execute_transaction(&stx, &store, 1, &Address::ZERO)
+                        .unwrap(),
+                );
                 total += start.elapsed();
             }
             total
@@ -143,7 +147,9 @@ fn bench_execute_mint_asset(c: &mut Criterion) {
         };
         sign_transaction(&kp, tx).unwrap()
     };
-    let result = executor.execute_transaction(&create_tx, &store, 1).unwrap();
+    let result = executor
+        .execute_transaction(&create_tx, &store, 1, &Address::ZERO)
+        .unwrap();
     assert!(result.receipt.success, "asset class creation failed");
 
     // Extract the asset class ID from the event attributes.
@@ -180,10 +186,18 @@ fn bench_execute_mint_asset(c: &mut Criterion) {
             let mut total = std::time::Duration::ZERO;
             for i in 0..iters {
                 StateWriter::new(&store)
-                    .set_account(&AccountState::with_balance(kp.address(), u64::MAX / 2, i + 1))
+                    .set_account(&AccountState::with_balance(
+                        kp.address(),
+                        u64::MAX / 2,
+                        i + 1,
+                    ))
                     .unwrap();
                 let start = std::time::Instant::now();
-                black_box(executor.execute_transaction(&stx, &store, 1).unwrap());
+                black_box(
+                    executor
+                        .execute_transaction(&stx, &store, 1, &Address::ZERO)
+                        .unwrap(),
+                );
                 total += start.elapsed();
             }
             total
@@ -213,7 +227,11 @@ fn bench_execute_buy_listing(c: &mut Criterion) {
                 let start = std::time::Instant::now();
                 // The result may be a failed receipt (listing not found), but
                 // that still exercises the full dispatch path.
-                black_box(executor.execute_transaction(&stx, &store, 1).unwrap());
+                black_box(
+                    executor
+                        .execute_transaction(&stx, &store, 1, &Address::ZERO)
+                        .unwrap(),
+                );
                 total += start.elapsed();
             }
             total
@@ -325,7 +343,7 @@ fn bench_execute_block_parallel_100(c: &mut Criterion) {
                         .unwrap();
                 }
                 let start = std::time::Instant::now();
-                black_box(par.execute_block_parallel(&txs, &store, 1));
+                black_box(par.execute_block_parallel(&txs, &store, 1, &Address::ZERO));
                 total += start.elapsed();
             }
             total
@@ -350,7 +368,7 @@ fn bench_execute_block_parallel_1000(c: &mut Criterion) {
                         .unwrap();
                 }
                 let start = std::time::Instant::now();
-                black_box(par.execute_block_parallel(&txs, &store, 1));
+                black_box(par.execute_block_parallel(&txs, &store, 1, &Address::ZERO));
                 total += start.elapsed();
             }
             total

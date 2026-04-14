@@ -25,3 +25,6 @@ hex = { workspace = true }
 [[bench]]
 name = "execution_bench"
 harness = false
+
+[lints]
+workspace = true

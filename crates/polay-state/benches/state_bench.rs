@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use polay_crypto::sha256;
-use polay_state::store::{MemoryStore, RocksDbStore, StateStore};
 use polay_state::merkle::compute_state_root;
+use polay_state::store::{MemoryStore, RocksDbStore, StateStore};
 
 fn bench_memory_store_put(c: &mut Criterion) {
     let store = MemoryStore::new();

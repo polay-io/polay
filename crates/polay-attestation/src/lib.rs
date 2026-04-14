@@ -19,9 +19,7 @@ use tracing::debug;
 // ---------------------------------------------------------------------------
 
 /// Re-export all attestation types for downstream convenience.
-pub use polay_types::attestation::{
-    Attestor, AttestorStatus, MatchResult, MatchSettlement,
-};
+pub use polay_types::attestation::{Attestor, AttestorStatus, MatchResult, MatchSettlement};
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -145,11 +143,7 @@ impl AttestationModule {
         // If no winners, split everything equally.
         if result.winners.is_empty() {
             let share = result.reward_pool / result.players.len() as u64;
-            return result
-                .players
-                .iter()
-                .map(|p| (*p, share))
-                .collect();
+            return result.players.iter().map(|p| (*p, share)).collect();
         }
 
         let winner_pool = (result.reward_pool as u128 * 60 / 100) as u64;
@@ -350,14 +344,13 @@ mod tests {
         };
         // Use a dummy pubkey (all zeros won't be a valid Ed25519 point, but
         // the length check happens first).
-        let result =
-            AttestationModule::verify_match_result_signature(&mr, &[1u8; 32]);
+        let result = AttestationModule::verify_match_result_signature(&mr, &[1u8; 32]);
         // Should either return Ok(false) for bad sig or Err for bad key.
         // Either way, it should not panic.
-        match result {
-            Ok(valid) => assert!(!valid),
-            Err(_) => {} // also acceptable
+        if let Ok(valid) = result {
+            assert!(!valid);
         }
+        // Err is also acceptable
     }
 
     #[test]

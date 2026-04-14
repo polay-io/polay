@@ -75,10 +75,7 @@ fn save_validator_list(store: &dyn StateStore, list: &[Address]) -> StakingResul
 }
 
 /// Ensure `addr` is present in the global validator list. Idempotent.
-pub fn register_in_validator_list(
-    store: &dyn StateStore,
-    addr: &Address,
-) -> StakingResult<()> {
+pub fn register_in_validator_list(store: &dyn StateStore, addr: &Address) -> StakingResult<()> {
     let mut list = load_validator_list(store)?;
     if !list.contains(addr) {
         list.push(*addr);
@@ -484,8 +481,8 @@ mod tests {
     #[test]
     fn calculate_epoch_rewards_basic() {
         let ip = InflationParams::default(); // 8% initial
-        // 100M supply, 8% annual = 8M annual. Epochs per year = 15_768_000 / 7200 = 2190.
-        // Epoch reward = 8_000_000 / 2190 = 3652 (integer div).
+                                             // 100M supply, 8% annual = 8M annual. Epochs per year = 15_768_000 / 7200 = 2190.
+                                             // Epoch reward = 8_000_000 / 2190 = 3652 (integer div).
         let reward = StakingModule::calculate_epoch_rewards(100_000_000, 40_000_000, &ip, 7200);
         assert_eq!(reward, 3652);
     }
@@ -524,11 +521,14 @@ mod tests {
             reward_debt: 0,
             last_reward_epoch: 0,
         };
-        StateWriter::new(&store).set_delegation(&delegation).unwrap();
+        StateWriter::new(&store)
+            .set_delegation(&delegation)
+            .unwrap();
         StakingModule::register_delegation(&store, &addr_a, &delegator).unwrap();
 
         let validators = vec![v_a, v_b];
-        let payouts = StakingModule::distribute_epoch_rewards(&store, &validators, 1, &config).unwrap();
+        let payouts =
+            StakingModule::distribute_epoch_rewards(&store, &validators, 1, &config).unwrap();
 
         // Payouts should be non-empty.
         assert!(!payouts.is_empty());
@@ -541,7 +541,10 @@ mod tests {
         // SupplyInfo should reflect minted rewards.
         let updated_supply = StateView::new(&store).get_supply_info().unwrap().unwrap();
         assert!(updated_supply.total_minted > 0);
-        assert_eq!(updated_supply.total_supply, 100_000_000 + updated_supply.total_minted);
+        assert_eq!(
+            updated_supply.total_supply,
+            100_000_000 + updated_supply.total_minted
+        );
     }
 
     #[test]
@@ -549,7 +552,8 @@ mod tests {
         let store = MemoryStore::new();
         let config = ChainConfig::default();
         let validators: Vec<ValidatorInfo> = vec![];
-        let payouts = StakingModule::distribute_epoch_rewards(&store, &validators, 0, &config).unwrap();
+        let payouts =
+            StakingModule::distribute_epoch_rewards(&store, &validators, 0, &config).unwrap();
         assert!(payouts.is_empty());
     }
 
@@ -563,8 +567,7 @@ mod tests {
         StateWriter::new(&store).set_validator(&v).unwrap();
 
         // Slash 10% (1000 bps) at height 42.
-        let event =
-            StakingModule::process_slashing(&store, &addr, 1000, "downtime", 42).unwrap();
+        let event = StakingModule::process_slashing(&store, &addr, 1000, "downtime", 42).unwrap();
 
         // No delegations, so total slashed = validator slash only.
         assert_eq!(event.amount, 10_000); // 10% of 100_000
@@ -572,7 +575,10 @@ mod tests {
         assert_eq!(event.height, 42);
         assert_eq!(event.validator, addr);
 
-        let updated = StateView::new(&store).get_validator(&addr).unwrap().unwrap();
+        let updated = StateView::new(&store)
+            .get_validator(&addr)
+            .unwrap()
+            .unwrap();
         assert_eq!(updated.stake, 90_000);
         assert_eq!(updated.status, ValidatorStatus::Jailed);
         // Jailed until height + DEFAULT_JAIL_DURATION_BLOCKS (1800).
@@ -588,10 +594,12 @@ mod tests {
         v.stake = 50_000;
         StateWriter::new(&store).set_validator(&v).unwrap();
 
-        let _event =
-            StakingModule::process_slashing(&store, &addr, 500, "test", 100).unwrap();
+        let _event = StakingModule::process_slashing(&store, &addr, 500, "test", 100).unwrap();
 
-        let updated = StateView::new(&store).get_validator(&addr).unwrap().unwrap();
+        let updated = StateView::new(&store)
+            .get_validator(&addr)
+            .unwrap()
+            .unwrap();
         // With 2s blocks: 1800 blocks = 1 hour. Jailed from height 100 to 1900.
         assert_eq!(updated.jailed_until, Some(100 + 1800));
         // At height 1899 (just before): still jailed.
@@ -644,7 +652,10 @@ mod tests {
         assert_eq!(event.amount, 8_000);
 
         // Verify individual amounts.
-        let updated_v = StateView::new(&store).get_validator(&val_addr).unwrap().unwrap();
+        let updated_v = StateView::new(&store)
+            .get_validator(&val_addr)
+            .unwrap()
+            .unwrap();
         assert_eq!(updated_v.stake, 45_000);
 
         let updated_da = StateView::new(&store)
@@ -708,8 +719,14 @@ mod tests {
         // del_old should receive a payout, del_new should not.
         let old_payout: Vec<_> = payouts.iter().filter(|(a, _)| *a == del_old).collect();
         let new_payout: Vec<_> = payouts.iter().filter(|(a, _)| *a == del_new).collect();
-        assert!(!old_payout.is_empty(), "old delegator should receive rewards");
-        assert!(new_payout.is_empty(), "new delegator should NOT receive rewards in same epoch");
+        assert!(
+            !old_payout.is_empty(),
+            "old delegator should receive rewards"
+        );
+        assert!(
+            new_payout.is_empty(),
+            "new delegator should NOT receive rewards in same epoch"
+        );
     }
 
     #[test]
@@ -750,8 +767,7 @@ mod tests {
         StateWriter::new(&store).set_delegation(&d_a).unwrap();
         StateWriter::new(&store).set_delegation(&d_b).unwrap();
 
-        let delegations =
-            StakingModule::get_delegations_for_validator(&store, &validator).unwrap();
+        let delegations = StakingModule::get_delegations_for_validator(&store, &validator).unwrap();
         assert_eq!(delegations.len(), 2);
         assert_eq!(delegations[0].amount, 5000);
         assert_eq!(delegations[1].amount, 3000);
@@ -784,7 +800,10 @@ mod tests {
         let reward_low =
             StakingModule::calculate_epoch_rewards(total_supply, total_staked, &low, epoch_len);
 
-        assert!(reward_high > reward_low, "higher rate should produce larger reward");
+        assert!(
+            reward_high > reward_low,
+            "higher rate should produce larger reward"
+        );
         // 8% should be roughly 2x 4%.
         assert!(reward_high >= reward_low * 2 - 1); // allow 1 unit rounding
         assert!(reward_high <= reward_low * 2 + 1);
@@ -854,11 +873,12 @@ mod tests {
             reward_debt: 0,
             last_reward_epoch: 0,
         };
-        StateWriter::new(&store).set_delegation(&delegation).unwrap();
+        StateWriter::new(&store)
+            .set_delegation(&delegation)
+            .unwrap();
         StakingModule::register_delegation(&store, &val, &delegator).unwrap();
 
-        let _payouts =
-            StakingModule::distribute_epoch_rewards(&store, &[v], 1, &config).unwrap();
+        let _payouts = StakingModule::distribute_epoch_rewards(&store, &[v], 1, &config).unwrap();
 
         let updated = StateView::new(&store).get_supply_info().unwrap().unwrap();
         assert!(updated.total_minted > 0, "rewards should have been minted");

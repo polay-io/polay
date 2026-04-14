@@ -78,12 +78,14 @@ pub fn execute_delegate_stake(
             available: account.balance,
         });
     }
-    account.balance = account.balance
-        .checked_sub(amount)
-        .ok_or(ExecutionError::InsufficientBalance {
-            required: amount,
-            available: account.balance,
-        })?;
+    account.balance =
+        account
+            .balance
+            .checked_sub(amount)
+            .ok_or(ExecutionError::InsufficientBalance {
+                required: amount,
+                available: account.balance,
+            })?;
     writer.set_account(&account)?;
 
     // Update validator stake.
@@ -219,11 +221,7 @@ pub fn process_mature_unbondings(
         writer.set_account(&account)?;
 
         // Delete the unbonding entry.
-        writer.delete_unbonding_entry(
-            &entry.delegator,
-            entry.completion_height,
-            index,
-        )?;
+        writer.delete_unbonding_entry(&entry.delegator, entry.completion_height, index)?;
 
         debug!(
             delegator = %entry.delegator,
@@ -270,7 +268,10 @@ mod tests {
         assert_eq!(events[0].module, "staking");
         assert_eq!(events[0].action, "validator_registered");
 
-        let v = StateView::new(&store).get_validator(&addr).unwrap().unwrap();
+        let v = StateView::new(&store)
+            .get_validator(&addr)
+            .unwrap()
+            .unwrap();
         assert!(v.is_active());
         assert_eq!(v.commission_bps, 500);
         assert_eq!(v.stake, 0);
@@ -311,9 +312,16 @@ mod tests {
             .set_account(&AccountState::with_balance(delegator_addr, 10_000, 0))
             .unwrap();
 
-        let events =
-            execute_delegate_stake(&delegator_addr, &validator_addr, 3000, &store, &config, 100, 100)
-                .unwrap();
+        let events = execute_delegate_stake(
+            &delegator_addr,
+            &validator_addr,
+            3000,
+            &store,
+            &config,
+            100,
+            100,
+        )
+        .unwrap();
         assert_eq!(events.len(), 1);
 
         let view = StateView::new(&store);
@@ -342,9 +350,16 @@ mod tests {
             .set_account(&AccountState::with_balance(delegator_addr, 100, 0))
             .unwrap();
 
-        let err =
-            execute_delegate_stake(&delegator_addr, &validator_addr, 500, &store, &config, 100, 100)
-                .unwrap_err();
+        let err = execute_delegate_stake(
+            &delegator_addr,
+            &validator_addr,
+            500,
+            &store,
+            &config,
+            100,
+            100,
+        )
+        .unwrap_err();
         assert!(matches!(err, ExecutionError::InsufficientBalance { .. }));
     }
 
@@ -359,12 +374,21 @@ mod tests {
         StateWriter::new(&store)
             .set_account(&AccountState::with_balance(delegator_addr, 10_000, 0))
             .unwrap();
-        execute_delegate_stake(&delegator_addr, &validator_addr, 5000, &store, &config, 100, 100)
-            .unwrap();
+        execute_delegate_stake(
+            &delegator_addr,
+            &validator_addr,
+            5000,
+            &store,
+            &config,
+            100,
+            100,
+        )
+        .unwrap();
 
         // Undelegate half.
         let events =
-            execute_undelegate_stake(&delegator_addr, &validator_addr, 2000, &store, 200, &config).unwrap();
+            execute_undelegate_stake(&delegator_addr, &validator_addr, 2000, &store, 200, &config)
+                .unwrap();
         assert_eq!(events.len(), 1);
 
         let view = StateView::new(&store);
@@ -398,8 +422,16 @@ mod tests {
         StateWriter::new(&store)
             .set_account(&AccountState::with_balance(delegator_addr, 10_000, 0))
             .unwrap();
-        execute_delegate_stake(&delegator_addr, &validator_addr, 1000, &store, &config, 100, 100)
-            .unwrap();
+        execute_delegate_stake(
+            &delegator_addr,
+            &validator_addr,
+            1000,
+            &store,
+            &config,
+            100,
+            100,
+        )
+        .unwrap();
 
         let err =
             execute_undelegate_stake(&delegator_addr, &validator_addr, 5000, &store, 200, &config)
@@ -418,8 +450,16 @@ mod tests {
         StateWriter::new(&store)
             .set_account(&AccountState::with_balance(delegator_addr, 10_000, 0))
             .unwrap();
-        execute_delegate_stake(&delegator_addr, &validator_addr, 5000, &store, &config, 100, 100)
-            .unwrap();
+        execute_delegate_stake(
+            &delegator_addr,
+            &validator_addr,
+            5000,
+            &store,
+            &config,
+            100,
+            100,
+        )
+        .unwrap();
 
         let current_height = 1000;
         let events = execute_undelegate_stake(
@@ -457,19 +497,20 @@ mod tests {
         StateWriter::new(&store)
             .set_account(&AccountState::with_balance(delegator_addr, 10_000, 0))
             .unwrap();
-        execute_delegate_stake(&delegator_addr, &validator_addr, 5000, &store, &config, 100, 100)
-            .unwrap();
-
-        // Undelegate at height 100.
-        execute_undelegate_stake(
+        execute_delegate_stake(
             &delegator_addr,
             &validator_addr,
-            2000,
+            5000,
             &store,
-            100,
             &config,
+            100,
+            100,
         )
         .unwrap();
+
+        // Undelegate at height 100.
+        execute_undelegate_stake(&delegator_addr, &validator_addr, 2000, &store, 100, &config)
+            .unwrap();
 
         let view = StateView::new(&store);
         // Balance should still be 5000 (funds locked in unbonding).
@@ -508,28 +549,22 @@ mod tests {
         StateWriter::new(&store)
             .set_account(&AccountState::with_balance(delegator_addr, 20_000, 0))
             .unwrap();
-        execute_delegate_stake(&delegator_addr, &validator_addr, 10_000, &store, &config, 100, 100)
-            .unwrap();
+        execute_delegate_stake(
+            &delegator_addr,
+            &validator_addr,
+            10_000,
+            &store,
+            &config,
+            100,
+            100,
+        )
+        .unwrap();
 
         // Two undelegations at different heights.
-        execute_undelegate_stake(
-            &delegator_addr,
-            &validator_addr,
-            3000,
-            &store,
-            100,
-            &config,
-        )
-        .unwrap();
-        execute_undelegate_stake(
-            &delegator_addr,
-            &validator_addr,
-            2000,
-            &store,
-            200,
-            &config,
-        )
-        .unwrap();
+        execute_undelegate_stake(&delegator_addr, &validator_addr, 3000, &store, 100, &config)
+            .unwrap();
+        execute_undelegate_stake(&delegator_addr, &validator_addr, 2000, &store, 200, &config)
+            .unwrap();
 
         let view = StateView::new(&store);
         let entries = view.get_unbonding_entries(&delegator_addr).unwrap();

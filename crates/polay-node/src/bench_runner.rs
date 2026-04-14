@@ -66,10 +66,7 @@ pub fn run_bench(num_txs: usize, num_accounts: usize) {
     println!("  TPS:            {:.0}", seq_tps);
     println!("  Avg per tx:     {:.3}ms", seq_avg);
     if seq_failed > 0 {
-        println!(
-            "  Success/Failed: {}/{}",
-            seq_success, seq_failed
-        );
+        println!("  Success/Failed: {}/{}", seq_success, seq_failed);
     }
     println!("---");
 
@@ -79,7 +76,8 @@ pub fn run_bench(num_txs: usize, num_accounts: usize) {
     let par = ParallelExecutor::new(Executor::new(config));
 
     let par_start = Instant::now();
-    let (par_receipts, par_stats) = par.execute_block_parallel(&transactions, &store, 1, &bench_proposer);
+    let (par_receipts, par_stats) =
+        par.execute_block_parallel(&transactions, &store, 1, &bench_proposer);
     let par_duration = par_start.elapsed();
 
     let par_success = par_receipts.iter().filter(|r| r.success).count();
@@ -100,28 +98,15 @@ pub fn run_bench(num_txs: usize, num_accounts: usize) {
     println!("  Total time:     {:.1}ms", par_ms);
     println!("  TPS:            {:.0}", par_tps);
     println!("  Avg per tx:     {:.3}ms", par_avg);
-    println!(
-        "  Batches:        {}",
-        par_stats.batch_count
-    );
-    println!(
-        "  Parallelism:    {:.1}",
-        par_stats.parallelism_ratio
-    );
+    println!("  Batches:        {}", par_stats.batch_count);
+    println!("  Parallelism:    {:.1}", par_stats.parallelism_ratio);
     if par_failed > 0 {
-        println!(
-            "  Success/Failed: {}/{}",
-            par_success, par_failed
-        );
+        println!("  Success/Failed: {}/{}", par_success, par_failed);
     }
     println!("---");
 
     // 7. Speedup.
-    let speedup = if par_ms > 0.0 {
-        seq_ms / par_ms
-    } else {
-        0.0
-    };
+    let speedup = if par_ms > 0.0 { seq_ms / par_ms } else { 0.0 };
     println!("Speedup:          {:.2}x", speedup);
     println!();
 
@@ -130,18 +115,12 @@ pub fn run_bench(num_txs: usize, num_accounts: usize) {
     println!("  Total txs:      {}", sched_stats.total_transactions);
     println!("  Batches:        {}", sched_stats.batch_count);
     println!("  Max batch size: {}", sched_stats.max_batch_size);
-    println!(
-        "  Parallelism:    {:.1}",
-        sched_stats.parallelism_ratio
-    );
+    println!("  Parallelism:    {:.1}", sched_stats.parallelism_ratio);
     println!();
 
     // 9. Execution mode.
     println!("Execution mode:   rayon parallel (overlay-per-tx)");
-    println!(
-        "Rayon threads:    {}",
-        rayon::current_num_threads()
-    );
+    println!("Rayon threads:    {}", rayon::current_num_threads());
     println!();
 }
 

@@ -91,7 +91,8 @@ impl ParallelExecutor {
         height: u64,
         block_proposer: &Address,
     ) -> Vec<TransactionReceipt> {
-        self.executor.execute_block(transactions, store, height, block_proposer)
+        self.executor
+            .execute_block(transactions, store, height, block_proposer)
     }
 
     /// Return a reference to the inner sequential executor.
@@ -117,14 +118,21 @@ impl ParallelExecutor {
         block_proposer: &Address,
     ) -> Vec<(usize, TransactionReceipt)> {
         // Execute all transactions in parallel, each against its own overlay.
-        let batch_results: Vec<(usize, TransactionReceipt, BTreeMap<Vec<u8>, Option<Vec<u8>>>)> =
-            batch
-                .transactions
-                .par_iter()
-                .map(|(idx, tx)| {
-                    let overlay = OverlayStore::new(store);
+        let batch_results: Vec<(
+            usize,
+            TransactionReceipt,
+            BTreeMap<Vec<u8>, Option<Vec<u8>>>,
+        )> = batch
+            .transactions
+            .par_iter()
+            .map(|(idx, tx)| {
+                let overlay = OverlayStore::new(store);
 
-                    let receipt = match self.executor.execute_transaction(tx, &overlay, height, block_proposer) {
+                let receipt =
+                    match self
+                        .executor
+                        .execute_transaction(tx, &overlay, height, block_proposer)
+                    {
                         Ok(exec_result) => exec_result.receipt,
                         Err(e) => {
                             let par_fee_payer = tx.transaction.sponsor.unwrap_or(*tx.signer());
@@ -139,10 +147,10 @@ impl ParallelExecutor {
                         }
                     };
 
-                    let writes = overlay.drain_writes();
-                    (*idx, receipt, writes)
-                })
-                .collect();
+                let writes = overlay.drain_writes();
+                (*idx, receipt, writes)
+            })
+            .collect();
 
         // Flush all overlays to the base store sequentially.
         // Order within a batch is irrelevant since write sets are disjoint.
@@ -204,7 +212,12 @@ mod tests {
     }
 
     /// Build a transfer transaction from `sender` to `receiver`.
-    fn transfer_tx(sender: Address, receiver: Address, amount: u64, nonce: u64) -> SignedTransaction {
+    fn transfer_tx(
+        sender: Address,
+        receiver: Address,
+        amount: u64,
+        nonce: u64,
+    ) -> SignedTransaction {
         make_signed_tx(Transaction {
             chain_id: CHAIN_ID.into(),
             nonce,
@@ -243,7 +256,8 @@ mod tests {
         let seq_receipts = executor_seq.execute_block(&txs, &store_seq, 1, &Address::ZERO);
 
         let par_executor = ParallelExecutor::new(Executor::new(config));
-        let (par_receipts, stats) = par_executor.execute_block_parallel(&txs, &store_par, 1, &Address::ZERO);
+        let (par_receipts, stats) =
+            par_executor.execute_block_parallel(&txs, &store_par, 1, &Address::ZERO);
 
         // Receipts must be identical and in the same order.
         assert_eq!(seq_receipts.len(), par_receipts.len());
@@ -281,7 +295,10 @@ mod tests {
         assert!(receipts[1].success);
         assert_eq!(receipts[0].block_height, 5);
         assert_eq!(receipts[1].block_height, 5);
-        assert_eq!(stats.batch_count, 2, "same-signer txs need separate batches");
+        assert_eq!(
+            stats.batch_count, 2,
+            "same-signer txs need separate batches"
+        );
     }
 
     #[test]
@@ -340,9 +357,10 @@ mod tests {
             transfer_tx(addr(99), addr(3), 200, 0), // will fail
         ];
 
-        let seq_receipts = Executor::new(config.clone()).execute_block(&txs, &store_seq, 1, &Address::ZERO);
-        let (par_receipts, _) =
-            ParallelExecutor::new(Executor::new(config)).execute_block_parallel(&txs, &store_par, 1, &Address::ZERO);
+        let seq_receipts =
+            Executor::new(config.clone()).execute_block(&txs, &store_seq, 1, &Address::ZERO);
+        let (par_receipts, _) = ParallelExecutor::new(Executor::new(config))
+            .execute_block_parallel(&txs, &store_par, 1, &Address::ZERO);
 
         assert_eq!(seq_receipts.len(), par_receipts.len());
         for (s, p) in seq_receipts.iter().zip(par_receipts.iter()) {
@@ -381,9 +399,10 @@ mod tests {
             .map(|(i, (&s, &r))| transfer_tx(addr(s), addr(r), 100 + i as u64 * 50, 0))
             .collect();
 
-        let seq_receipts = Executor::new(config.clone()).execute_block(&txs, &store_seq, 1, &Address::ZERO);
-        let (par_receipts, stats) =
-            ParallelExecutor::new(Executor::new(config)).execute_block_parallel(&txs, &store_par, 1, &Address::ZERO);
+        let seq_receipts =
+            Executor::new(config.clone()).execute_block(&txs, &store_seq, 1, &Address::ZERO);
+        let (par_receipts, stats) = ParallelExecutor::new(Executor::new(config))
+            .execute_block_parallel(&txs, &store_par, 1, &Address::ZERO);
 
         // All should be in a single batch (independent senders/receivers).
         assert_eq!(stats.batch_count, 1);
@@ -402,11 +421,7 @@ mod tests {
         for &a in senders.iter().chain(receivers.iter()) {
             let seq_acct = seq_view.get_account(&addr(a)).unwrap();
             let par_acct = par_view.get_account(&addr(a)).unwrap();
-            assert_eq!(
-                seq_acct, par_acct,
-                "account state mismatch for addr({})",
-                a
-            );
+            assert_eq!(seq_acct, par_acct, "account state mismatch for addr({})", a);
         }
     }
 
@@ -462,11 +477,15 @@ mod tests {
             .map(|i| transfer_tx(addr(1), addr(2), 100, i as u64))
             .collect();
 
-        let seq_receipts = Executor::new(config.clone()).execute_block(&txs, &store_seq, 1, &Address::ZERO);
-        let (par_receipts, stats) =
-            ParallelExecutor::new(Executor::new(config)).execute_block_parallel(&txs, &store_par, 1, &Address::ZERO);
+        let seq_receipts =
+            Executor::new(config.clone()).execute_block(&txs, &store_seq, 1, &Address::ZERO);
+        let (par_receipts, stats) = ParallelExecutor::new(Executor::new(config))
+            .execute_block_parallel(&txs, &store_par, 1, &Address::ZERO);
 
-        assert_eq!(stats.batch_count, n, "each tx from same signer needs its own batch");
+        assert_eq!(
+            stats.batch_count, n,
+            "each tx from same signer needs its own batch"
+        );
 
         // All receipts match.
         for (s, p) in seq_receipts.iter().zip(par_receipts.iter()) {

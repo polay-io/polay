@@ -62,7 +62,7 @@ impl EpochManager {
     ///
     /// Height 0 is never an epoch boundary (it is genesis).
     pub fn is_epoch_boundary(&self, height: u64) -> bool {
-        height > 0 && height % self.config.epoch_length == 0
+        height > 0 && height.is_multiple_of(self.config.epoch_length)
     }
 
     /// Get the epoch number for a given height.
@@ -144,9 +144,13 @@ impl EpochManager {
         events.push(Event::validator_set_updated(epoch, active_addrs.len()));
 
         // 8. Distribute epoch rewards to active validators.
-        let active_validators: Vec<ValidatorInfo> =
-            eligible.iter().map(|v| (*v).clone()).collect();
-        let rewards = StakingModule::distribute_epoch_rewards(store, &active_validators, epoch, &self.config)?;
+        let active_validators: Vec<ValidatorInfo> = eligible.iter().map(|v| (*v).clone()).collect();
+        let rewards = StakingModule::distribute_epoch_rewards(
+            store,
+            &active_validators,
+            epoch,
+            &self.config,
+        )?;
         let total_rewards: u64 = rewards.iter().map(|(_, amt)| amt).sum();
 
         // 9. Store epoch info.
@@ -214,8 +218,7 @@ impl EpochManager {
 
         info!(
             validators = genesis_validators.len(),
-            total_staked,
-            "epoch 0 initialized from genesis"
+            total_staked, "epoch 0 initialized from genesis"
         );
 
         Ok(set)
@@ -229,8 +232,8 @@ impl EpochManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use polay_state::{MemoryStore, StateView};
     use polay_staking::register_in_validator_list;
+    use polay_state::{MemoryStore, StateView};
 
     fn test_addr(byte: u8) -> Address {
         Address::new([byte; 32])

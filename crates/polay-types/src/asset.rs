@@ -6,7 +6,16 @@ use crate::hash::Hash;
 
 /// Describes the fungibility class of an asset.
 #[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
 )]
 pub enum AssetType {
     /// Fully fungible tokens (e.g., in-game gold).
@@ -22,9 +31,7 @@ pub enum AssetType {
 ///
 /// Think of it as the "template": there is one `AssetClass` for "Gold Coin"
 /// and many individual balances of that class.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct AssetClass {
     /// Content-addressed identifier derived from creation parameters.
     pub id: Hash,
@@ -58,14 +65,13 @@ impl AssetClass {
 
     /// Returns the remaining mintable supply, or `None` if uncapped.
     pub fn remaining_supply(&self) -> Option<u64> {
-        self.max_supply.map(|cap| cap.saturating_sub(self.total_supply))
+        self.max_supply
+            .map(|cap| cap.saturating_sub(self.total_supply))
     }
 }
 
 /// Tracks how many units of a particular asset class an account owns.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct AssetBalance {
     /// The owner's address.
     pub owner: Address,
@@ -173,7 +179,11 @@ mod tests {
 
     #[test]
     fn asset_type_serde() {
-        for t in [AssetType::Fungible, AssetType::NonFungible, AssetType::SemiFungible] {
+        for t in [
+            AssetType::Fungible,
+            AssetType::NonFungible,
+            AssetType::SemiFungible,
+        ] {
             let json = serde_json::to_string(&t).unwrap();
             let parsed: AssetType = serde_json::from_str(&json).unwrap();
             assert_eq!(t, parsed);

@@ -4,8 +4,7 @@
 use polay_config::ChainConfig;
 use polay_state::{StateStore, StateView, StateWriter};
 use polay_types::{
-    AccountState, Address, Attestor, AttestorStatus, Event, Hash, MatchResult,
-    MatchSettlement,
+    AccountState, Address, Attestor, AttestorStatus, Event, Hash, MatchResult, MatchSettlement,
 };
 use tracing::debug;
 
@@ -100,10 +99,7 @@ pub fn execute_submit_match_result(
     writer.set_match_result(match_result)?;
 
     // Determine quarantine status.
-    let quarantined = match match_result.anti_cheat_score {
-        Some(score) if score < config.attestation_quarantine_threshold => true,
-        _ => false,
-    };
+    let quarantined = matches!(match_result.anti_cheat_score, Some(score) if score < config.attestation_quarantine_threshold);
 
     // Create the settlement record.
     let settlement = MatchSettlement {
@@ -204,7 +200,10 @@ pub fn execute_distribute_reward(
         "rewards distributed"
     );
 
-    Ok(vec![Event::rewards_distributed(match_id, total_distributed)])
+    Ok(vec![Event::rewards_distributed(
+        match_id,
+        total_distributed,
+    )])
 }
 
 // ---------------------------------------------------------------------------
@@ -255,15 +254,9 @@ mod tests {
         let store = MemoryStore::new();
         let addr = test_addr(1);
 
-        let events = execute_register_attestor(
-            &addr,
-            "chess",
-            "https://attestor.test",
-            "{}",
-            &store,
-            100,
-        )
-        .unwrap();
+        let events =
+            execute_register_attestor(&addr, "chess", "https://attestor.test", "{}", &store, 100)
+                .unwrap();
 
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].module, "attestation");
@@ -368,8 +361,7 @@ mod tests {
 
         let rewards = vec![(player_a, 7000), (player_b, 3000)];
         let events =
-            execute_distribute_reward(&attestor_addr, &mr.match_id, &rewards, &store, 600)
-                .unwrap();
+            execute_distribute_reward(&attestor_addr, &mr.match_id, &rewards, &store, 600).unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].action, "rewards_distributed");
 

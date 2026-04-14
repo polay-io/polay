@@ -83,7 +83,6 @@ pub enum NetworkMessage {
     Pong(u64),
 
     // -- State sync messages ------------------------------------------------
-
     /// Request a state snapshot at the given block height.
     RequestSnapshot { height: u64 },
 

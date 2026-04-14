@@ -127,10 +127,7 @@ mod tests {
         base.put_raw(b"key1", b"value1").unwrap();
 
         let overlay = OverlayStore::new(&base);
-        assert_eq!(
-            overlay.get_raw(b"key1").unwrap(),
-            Some(b"value1".to_vec())
-        );
+        assert_eq!(overlay.get_raw(b"key1").unwrap(), Some(b"value1".to_vec()));
     }
 
     #[test]
@@ -162,10 +159,7 @@ mod tests {
             Some(b"overlay_value".to_vec())
         );
         // Base is unchanged.
-        assert_eq!(
-            base.get_raw(b"key1").unwrap(),
-            Some(b"base_value".to_vec())
-        );
+        assert_eq!(base.get_raw(b"key1").unwrap(), Some(b"base_value".to_vec()));
     }
 
     #[test]
@@ -194,10 +188,7 @@ mod tests {
         // Overlay sees a tombstone (None).
         assert!(overlay.get_raw(b"key1").unwrap().is_none());
         // Base is unchanged.
-        assert_eq!(
-            base.get_raw(b"key1").unwrap(),
-            Some(b"value1".to_vec())
-        );
+        assert_eq!(base.get_raw(b"key1").unwrap(), Some(b"value1".to_vec()));
     }
 
     #[test]

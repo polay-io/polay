@@ -65,10 +65,7 @@ pub enum ChainEvent {
         option: String,
     },
     /// Emitted when a governance proposal is finalized (passed, rejected, or executed).
-    ProposalFinalized {
-        proposal_id: String,
-        status: String,
-    },
+    ProposalFinalized { proposal_id: String, status: String },
     /// Emitted at every epoch boundary when the validator set is rotated.
     EpochTransition {
         epoch: u64,

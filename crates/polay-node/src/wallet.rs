@@ -14,9 +14,7 @@ use polay_rpc::types::{
     AccountResponse, AssetBalanceResponse, AssetClassResponse, BlockResponse, ChainInfoResponse,
     ListingResponse, ProfileResponse, SubmitTransactionResponse, ValidatorResponse,
 };
-use polay_types::{
-    Address, AssetType, Hash, SignedTransaction, Transaction, TransactionAction,
-};
+use polay_types::{Address, AssetType, Hash, SignedTransaction, Transaction, TransactionAction};
 
 // ===========================================================================
 // CLI definition
@@ -24,7 +22,10 @@ use polay_types::{
 
 /// POLAY Wallet -- manage keys, build transactions, and query the chain.
 #[derive(Parser)]
-#[command(name = "polay-wallet", about = "CLI wallet for the POLAY gaming blockchain")]
+#[command(
+    name = "polay-wallet",
+    about = "CLI wallet for the POLAY gaming blockchain"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -561,9 +562,8 @@ impl RpcClient {
             anyhow::bail!("RPC returned HTTP {}", resp.status());
         }
 
-        let rpc_resp: JsonRpcResponse<T> = resp
-            .json()
-            .context("failed to parse JSON-RPC response")?;
+        let rpc_resp: JsonRpcResponse<T> =
+            resp.json().context("failed to parse JSON-RPC response")?;
 
         if let Some(err) = rpc_resp.error {
             anyhow::bail!("{}", err);
@@ -598,9 +598,8 @@ impl RpcClient {
             anyhow::bail!("RPC returned HTTP {}", resp.status());
         }
 
-        let rpc_resp: JsonRpcResponse<T> = resp
-            .json()
-            .context("failed to parse JSON-RPC response")?;
+        let rpc_resp: JsonRpcResponse<T> =
+            resp.json().context("failed to parse JSON-RPC response")?;
 
         if let Some(err) = rpc_resp.error {
             anyhow::bail!("{}", err);
@@ -666,8 +665,7 @@ fn load_keypair(path: &PathBuf) -> Result<PolayKeypair> {
     let hex_str = std::fs::read_to_string(path)
         .with_context(|| format!("failed to read key file {:?}", path))?;
     let hex_str = hex_str.trim();
-    let bytes =
-        hex::decode(hex_str).with_context(|| "key file does not contain valid hex")?;
+    let bytes = hex::decode(hex_str).with_context(|| "key file does not contain valid hex")?;
     if bytes.len() != 32 {
         anyhow::bail!(
             "expected 32 secret key bytes, got {} (from {:?})",
@@ -731,8 +729,8 @@ fn build_sign_submit(
     };
 
     // 4. Sign.
-    let signed_tx = sign_transaction(keypair, tx)
-        .map_err(|e| anyhow::anyhow!("signing failed: {}", e))?;
+    let signed_tx =
+        sign_transaction(keypair, tx).map_err(|e| anyhow::anyhow!("signing failed: {}", e))?;
 
     let tx_hash_hex = signed_tx.tx_hash.to_hex();
 
@@ -1274,13 +1272,7 @@ fn main() -> Result<()> {
                 };
 
                 println!("Registering validator with {} bps commission", commission);
-                build_sign_submit(
-                    &client,
-                    &keypair,
-                    action,
-                    max_fee,
-                    "Register Validator",
-                )?;
+                build_sign_submit(&client, &keypair, action, max_fee, "Register Validator")?;
             }
 
             ValidatorCommands::Show { address, rpc } => {
@@ -1396,9 +1388,9 @@ fn main() -> Result<()> {
                         let tx_hash_parsed = Hash::from_hex(&hash).ok();
 
                         if let Some(target_hash) = tx_hash_parsed {
-                            for h in
-                                (chain_info.height.saturating_sub(search_depth)..=chain_info.height)
-                                    .rev()
+                            for h in (chain_info.height.saturating_sub(search_depth)
+                                ..=chain_info.height)
+                                .rev()
                             {
                                 if h == 0 {
                                     continue;

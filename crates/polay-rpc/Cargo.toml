@@ -25,3 +25,6 @@ parking_lot = { workspace = true }
 # internally (0.4). We add it here so `set_http_middleware` gets the right type.
 tower_04 = { package = "tower", version = "0.4" }
 tower-http = { workspace = true }
+
+[lints]
+workspace = true

@@ -40,7 +40,11 @@ impl<'a> StateWriter<'a> {
 
     /// Persist an [`AssetClass`].  The key is derived from `asset_class.id`.
     pub fn set_asset_class(&self, asset_class: &AssetClass) -> StateResult<()> {
-        store_put(self.store, &keys::asset_class_key(&asset_class.id), asset_class)
+        store_put(
+            self.store,
+            &keys::asset_class_key(&asset_class.id),
+            asset_class,
+        )
     }
 
     /// Set the balance of a specific asset class held by `owner`.
@@ -50,7 +54,11 @@ impl<'a> StateWriter<'a> {
         owner: &Address,
         balance: u64,
     ) -> StateResult<()> {
-        store_put(self.store, &keys::asset_balance_key(asset_class_id, owner), &balance)
+        store_put(
+            self.store,
+            &keys::asset_balance_key(asset_class_id, owner),
+            &balance,
+        )
     }
 
     // -- Validators / Staking ------------------------------------------------
@@ -129,7 +137,11 @@ impl<'a> StateWriter<'a> {
 
     /// Persist a [`MatchResult`].  The key is derived from `result.match_id`.
     pub fn set_match_result(&self, result: &MatchResult) -> StateResult<()> {
-        store_put(self.store, &keys::match_result_key(&result.match_id), result)
+        store_put(
+            self.store,
+            &keys::match_result_key(&result.match_id),
+            result,
+        )
     }
 
     /// Persist a [`MatchSettlement`].  The key is derived from
@@ -232,11 +244,7 @@ impl<'a> StateWriter<'a> {
     }
 
     /// Delete a [`GuildMembership`] and remove the reverse index entry.
-    pub fn delete_guild_membership(
-        &self,
-        guild_id: &Hash,
-        member: &Address,
-    ) -> StateResult<()> {
+    pub fn delete_guild_membership(&self, guild_id: &Hash, member: &Address) -> StateResult<()> {
         self.store
             .delete(&keys::guild_member_key(guild_id, member))?;
         self.store
@@ -273,8 +281,10 @@ impl<'a> StateWriter<'a> {
         tournament_id: &Hash,
         participant: &Address,
     ) -> StateResult<()> {
-        self.store
-            .delete(&keys::tournament_participant_key(tournament_id, participant))
+        self.store.delete(&keys::tournament_participant_key(
+            tournament_id,
+            participant,
+        ))
     }
 
     // -- Session keys ---------------------------------------------------------
@@ -304,7 +314,11 @@ impl<'a> StateWriter<'a> {
 
     /// Persist block-level events for `height`.
     pub fn set_block_events(&self, height: u64, events: &[Event]) -> StateResult<()> {
-        store_put(self.store, &keys::block_events_key(height), &events.to_vec())
+        store_put(
+            self.store,
+            &keys::block_events_key(height),
+            &events.to_vec(),
+        )
     }
 
     // -- Epoch ---------------------------------------------------------------
@@ -316,7 +330,11 @@ impl<'a> StateWriter<'a> {
 
     /// Set the current active validator set (list of addresses).
     pub fn set_active_validator_set(&self, validators: &[Address]) -> StateResult<()> {
-        store_put(self.store, &keys::active_validator_set_key(), &validators.to_vec())
+        store_put(
+            self.store,
+            &keys::active_validator_set_key(),
+            &validators.to_vec(),
+        )
     }
 
     // -- Economics / supply tracking -----------------------------------------
@@ -365,9 +383,7 @@ mod tests {
     use super::*;
     use crate::state_view::StateView;
     use crate::store::MemoryStore;
-    use polay_types::{
-        attestation::AttestorStatus, market::ListingStatus,
-    };
+    use polay_types::{attestation::AttestorStatus, market::ListingStatus};
 
     fn test_addr(byte: u8) -> Address {
         Address::new([byte; 32])
@@ -484,10 +500,7 @@ mod tests {
         assert_eq!(view.get_asset_class(&ac.id).unwrap().unwrap(), ac);
         assert_eq!(view.get_asset_balance(&ac.id, &owner).unwrap(), 50);
         // Unknown owner has zero balance.
-        assert_eq!(
-            view.get_asset_balance(&ac.id, &test_addr(0xFF)).unwrap(),
-            0
-        );
+        assert_eq!(view.get_asset_balance(&ac.id, &test_addr(0xFF)).unwrap(), 0);
     }
 
     #[test]

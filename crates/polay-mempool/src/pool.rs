@@ -127,9 +127,7 @@ impl Mempool {
         }
 
         // 1c. Chain ID check.
-        if !self.config.chain_id.is_empty()
-            && tx.transaction.chain_id != self.config.chain_id
-        {
+        if !self.config.chain_id.is_empty() && tx.transaction.chain_id != self.config.chain_id {
             return Err(MempoolError::ChainIdMismatch {
                 expected: self.config.chain_id.clone(),
                 got: tx.transaction.chain_id.clone(),
@@ -137,15 +135,13 @@ impl Mempool {
         }
 
         // 2. Global capacity check -- try eviction if full.
-        if self.pending.len() >= self.config.max_size {
-            if !self.try_evict_lowest_fee(&tx) {
-                warn!(
-                    pool_size = self.pending.len(),
-                    max = self.config.max_size,
-                    "mempool is full, rejecting transaction"
-                );
-                return Err(MempoolError::MempoolFull);
-            }
+        if self.pending.len() >= self.config.max_size && !self.try_evict_lowest_fee(&tx) {
+            warn!(
+                pool_size = self.pending.len(),
+                max = self.config.max_size,
+                "mempool is full, rejecting transaction"
+            );
+            return Err(MempoolError::MempoolFull);
         }
 
         // 3. Per-account limit check.
@@ -183,9 +179,8 @@ impl Mempool {
             let pubkey_bytes: [u8; 32] = tx.signer_pubkey[..32]
                 .try_into()
                 .expect("length already checked");
-            let pubkey = PolayPublicKey::from_bytes(&pubkey_bytes).map_err(|e| {
-                MempoolError::InvalidSignature(format!("invalid public key: {e}"))
-            })?;
+            let pubkey = PolayPublicKey::from_bytes(&pubkey_bytes)
+                .map_err(|e| MempoolError::InvalidSignature(format!("invalid public key: {e}")))?;
             polay_crypto::verify_transaction_with_key(&tx, &pubkey).map_err(|e| {
                 MempoolError::InvalidSignature(format!("signature verification failed: {e}"))
             })?;
@@ -322,7 +317,11 @@ impl Mempool {
         }
 
         if count > 0 {
-            debug!(evicted = count, ttl = self.config.tx_ttl_secs, "evicted expired transactions");
+            debug!(
+                evicted = count,
+                ttl = self.config.tx_ttl_secs,
+                "evicted expired transactions"
+            );
         }
 
         count

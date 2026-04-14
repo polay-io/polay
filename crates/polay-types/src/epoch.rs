@@ -4,9 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::address::Address;
 
 /// Information about a completed epoch.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct EpochInfo {
     /// Epoch number (height / epoch_length).
     pub epoch: u64,

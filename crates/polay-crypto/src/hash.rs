@@ -44,9 +44,9 @@ pub fn hash_block_header(header: &BlockHeader) -> CryptoResult<Hash> {
 /// - Empty list  -> `Hash::ZERO`
 /// - Single hash -> that hash itself
 /// - Otherwise   -> pair-wise combine with domain-separated SHA-256. Unpaired
-///                  nodes at the end of an odd-length level are promoted directly
-///                  (not duplicated), which prevents second-preimage attacks
-///                  where `[A,B,C]` and `[A,B,C,C]` could produce the same root.
+///   nodes at the end of an odd-length level are promoted directly
+///   (not duplicated), which prevents second-preimage attacks
+///   where `[A,B,C]` and `[A,B,C,C]` could produce the same root.
 pub fn merkle_root(hashes: &[Hash]) -> Hash {
     if hashes.is_empty() {
         return Hash::ZERO;
@@ -58,7 +58,7 @@ pub fn merkle_root(hashes: &[Hash]) -> Hash {
     let mut level: Vec<Hash> = hashes.to_vec();
 
     while level.len() > 1 {
-        let mut next_level = Vec::with_capacity((level.len() + 1) / 2);
+        let mut next_level = Vec::with_capacity(level.len().div_ceil(2));
 
         // Pair-wise combine.
         let mut i = 0;
@@ -215,7 +215,10 @@ mod tests {
         let c = sha256(b"c");
         let root3 = merkle_root(&[a, b, c]);
         let root4 = merkle_root(&[a, b, c, Hash::ZERO]);
-        assert_ne!(root3, root4, "merkle tree must resist second-preimage via padding");
+        assert_ne!(
+            root3, root4,
+            "merkle tree must resist second-preimage via padding"
+        );
     }
 
     #[test]

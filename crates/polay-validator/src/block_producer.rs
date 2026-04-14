@@ -69,7 +69,8 @@ impl BlockProducer {
         let receipts = if self.chain_config.parallel_execution {
             let par = ParallelExecutor::new(Executor::new(self.chain_config.clone()));
             let proposer_addr = self.keypair.address();
-            let (par_receipts, stats) = par.execute_block_parallel(&pending_txs, store, height, &proposer_addr);
+            let (par_receipts, stats) =
+                par.execute_block_parallel(&pending_txs, store, height, &proposer_addr);
             info!(
                 height,
                 batches = stats.batch_count,
@@ -175,7 +176,15 @@ mod tests {
         let executor = Executor::new(config.clone());
 
         let (block, receipts) = producer
-            .produce_block(1, Hash::ZERO, Hash::ZERO, &mempool, &executor, &store, &config.chain_id)
+            .produce_block(
+                1,
+                Hash::ZERO,
+                Hash::ZERO,
+                &mempool,
+                &executor,
+                &store,
+                &config.chain_id,
+            )
             .unwrap();
 
         assert_eq!(block.height(), 1);
@@ -205,7 +214,15 @@ mod tests {
         let executor = Executor::new(config.clone());
 
         let (block, receipts) = producer
-            .produce_block(1, Hash::ZERO, Hash::ZERO, &mempool, &executor, &store, &config.chain_id)
+            .produce_block(
+                1,
+                Hash::ZERO,
+                Hash::ZERO,
+                &mempool,
+                &executor,
+                &store,
+                &config.chain_id,
+            )
             .unwrap();
 
         assert_eq!(block.height(), 1);

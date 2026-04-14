@@ -5,9 +5,7 @@ use crate::address::Address;
 use crate::hash::Hash;
 
 /// Role of a member within a guild.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub enum GuildRole {
     /// The guild creator/owner with full permissions.
     Leader,
@@ -18,9 +16,7 @@ pub enum GuildRole {
 }
 
 /// An on-chain guild — a player-run organization with a shared treasury.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct Guild {
     /// Content-addressed identifier for this guild.
     pub guild_id: Hash,
@@ -41,9 +37,7 @@ pub struct Guild {
 }
 
 /// Tracks a single member's participation in a guild.
-#[derive(
-    Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct GuildMembership {
     /// Which guild this membership belongs to.
     pub guild_id: Hash,

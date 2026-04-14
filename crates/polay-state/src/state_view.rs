@@ -28,13 +28,13 @@ impl<'a> StateView<'a> {
     /// Retrieve the full [`AccountState`] for `addr`, or `None` if it does not
     /// exist.
     pub fn get_account(&self, addr: &Address) -> StateResult<Option<AccountState>> {
-        store_get(self.store,&keys::account_key(addr))
+        store_get(self.store, &keys::account_key(addr))
     }
 
     /// Retrieve the native POL balance for `addr`. Returns `0` if the address
     /// has no balance entry.
     pub fn get_balance(&self, addr: &Address) -> StateResult<u64> {
-        let val: Option<u64> = store_get(self.store,&keys::balance_key(addr))?;
+        let val: Option<u64> = store_get(self.store, &keys::balance_key(addr))?;
         Ok(val.unwrap_or(0))
     }
 
@@ -42,13 +42,14 @@ impl<'a> StateView<'a> {
 
     /// Retrieve an [`AssetClass`] by its content-addressed id.
     pub fn get_asset_class(&self, id: &Hash) -> StateResult<Option<AssetClass>> {
-        store_get(self.store,&keys::asset_class_key(id))
+        store_get(self.store, &keys::asset_class_key(id))
     }
 
     /// Retrieve the balance of a specific asset class held by `owner`.
     /// Returns `0` if there is no entry.
     pub fn get_asset_balance(&self, asset_class_id: &Hash, owner: &Address) -> StateResult<u64> {
-        let val: Option<u64> = store_get(self.store, &keys::asset_balance_key(asset_class_id, owner))?;
+        let val: Option<u64> =
+            store_get(self.store, &keys::asset_balance_key(asset_class_id, owner))?;
         Ok(val.unwrap_or(0))
     }
 
@@ -56,7 +57,7 @@ impl<'a> StateView<'a> {
 
     /// Retrieve [`ValidatorInfo`] for the given address.
     pub fn get_validator(&self, addr: &Address) -> StateResult<Option<ValidatorInfo>> {
-        store_get(self.store,&keys::validator_key(addr))
+        store_get(self.store, &keys::validator_key(addr))
     }
 
     /// Retrieve a [`Delegation`] from `delegator` to `validator`.
@@ -90,7 +91,10 @@ impl<'a> StateView<'a> {
 
     /// Retrieve all mature unbonding entries (completion_height <= current_height)
     /// from the global index.
-    pub fn get_mature_unbondings(&self, current_height: u64) -> StateResult<Vec<(UnbondingEntry, u8)>> {
+    pub fn get_mature_unbondings(
+        &self,
+        current_height: u64,
+    ) -> StateResult<Vec<(UnbondingEntry, u8)>> {
         let prefix = keys::unbonding_index_prefix();
         let pairs = self.store.prefix_scan(&prefix)?;
         let mut entries = Vec::new();
@@ -121,14 +125,14 @@ impl<'a> StateView<'a> {
 
     /// Retrieve a [`Listing`] by its id.
     pub fn get_listing(&self, id: &Hash) -> StateResult<Option<Listing>> {
-        store_get(self.store,&keys::listing_key(id))
+        store_get(self.store, &keys::listing_key(id))
     }
 
     // -- Identity / Gaming ---------------------------------------------------
 
     /// Retrieve a [`PlayerProfile`] for the given address.
     pub fn get_profile(&self, addr: &Address) -> StateResult<Option<PlayerProfile>> {
-        store_get(self.store,&keys::profile_key(addr))
+        store_get(self.store, &keys::profile_key(addr))
     }
 
     /// Retrieve a specific [`Achievement`] for a player.
@@ -144,17 +148,17 @@ impl<'a> StateView<'a> {
 
     /// Retrieve an [`Attestor`] registration.
     pub fn get_attestor(&self, addr: &Address) -> StateResult<Option<Attestor>> {
-        store_get(self.store,&keys::attestor_key(addr))
+        store_get(self.store, &keys::attestor_key(addr))
     }
 
     /// Retrieve a [`MatchResult`] by its id.
     pub fn get_match_result(&self, id: &Hash) -> StateResult<Option<MatchResult>> {
-        store_get(self.store,&keys::match_result_key(id))
+        store_get(self.store, &keys::match_result_key(id))
     }
 
     /// Retrieve a [`MatchSettlement`] by its match id.
     pub fn get_match_settlement(&self, id: &Hash) -> StateResult<Option<MatchSettlement>> {
-        store_get(self.store,&keys::match_settlement_key(id))
+        store_get(self.store, &keys::match_settlement_key(id))
     }
 
     // -- Governance -----------------------------------------------------------
@@ -390,20 +394,20 @@ impl<'a> StateView<'a> {
 
     /// Retrieve the current chain height. Returns `0` if not yet set (pre-genesis).
     pub fn get_chain_height(&self) -> StateResult<u64> {
-        let val: Option<u64> = store_get(self.store,&keys::chain_height_key())?;
+        let val: Option<u64> = store_get(self.store, &keys::chain_height_key())?;
         Ok(val.unwrap_or(0))
     }
 
     /// Retrieve the hash of the latest committed block.
     /// Returns `Hash::ZERO` if not yet set.
     pub fn get_latest_hash(&self) -> StateResult<Hash> {
-        let val: Option<Hash> = store_get(self.store,&keys::latest_hash_key())?;
+        let val: Option<Hash> = store_get(self.store, &keys::latest_hash_key())?;
         Ok(val.unwrap_or(Hash::ZERO))
     }
 
     /// Retrieve a [`Block`] by height.
     pub fn get_block(&self, height: u64) -> StateResult<Option<Block>> {
-        store_get(self.store,&keys::block_key(height))
+        store_get(self.store, &keys::block_key(height))
     }
 }
 
@@ -498,13 +502,7 @@ mod tests {
     fn round_trip_profile() {
         let store = MemoryStore::new();
         let addr = test_addr(0xDD);
-        let profile = PlayerProfile::new(
-            addr,
-            "alice".into(),
-            "Alice".into(),
-            None,
-            1,
-        );
+        let profile = PlayerProfile::new(addr, "alice".into(), "Alice".into(), None, 1);
         StateWriter::new(&store).set_profile(&profile).unwrap();
         let got = StateView::new(&store).get_profile(&addr).unwrap().unwrap();
         assert_eq!(got, profile);
@@ -571,15 +569,27 @@ mod tests {
     fn round_trip_receipt() {
         let store = MemoryStore::new();
         let tx_hash = test_hash(0xAA);
-        let receipt = TransactionReceipt::success(tx_hash, 10, 500, 21000, Address::ZERO, vec![
-            Event::new("bank", "transfer", vec![
-                ("from".into(), "alice".into()),
-                ("to".into(), "bob".into()),
-                ("amount".into(), "1000".into()),
-            ]),
-        ]);
+        let receipt = TransactionReceipt::success(
+            tx_hash,
+            10,
+            500,
+            21000,
+            Address::ZERO,
+            vec![Event::new(
+                "bank",
+                "transfer",
+                vec![
+                    ("from".into(), "alice".into()),
+                    ("to".into(), "bob".into()),
+                    ("amount".into(), "1000".into()),
+                ],
+            )],
+        );
         StateWriter::new(&store).set_receipt(&receipt).unwrap();
-        let got = StateView::new(&store).get_receipt(&tx_hash).unwrap().unwrap();
+        let got = StateView::new(&store)
+            .get_receipt(&tx_hash)
+            .unwrap()
+            .unwrap();
         assert_eq!(got, receipt);
     }
 
@@ -619,20 +629,13 @@ mod tests {
     fn round_trip_block_events() {
         let store = MemoryStore::new();
         let events = vec![
-            Event::new("bank", "transfer", vec![
-                ("amount".into(), "100".into()),
-            ]),
-            Event::new("asset", "mint", vec![
-                ("amount".into(), "50".into()),
-            ]),
+            Event::new("bank", "transfer", vec![("amount".into(), "100".into())]),
+            Event::new("asset", "mint", vec![("amount".into(), "50".into())]),
         ];
         StateWriter::new(&store)
             .set_block_events(7, &events)
             .unwrap();
-        let got = StateView::new(&store)
-            .get_block_events(7)
-            .unwrap()
-            .unwrap();
+        let got = StateView::new(&store).get_block_events(7).unwrap().unwrap();
         assert_eq!(got, events);
     }
 
@@ -683,9 +686,11 @@ mod tests {
         writer.set_block_events(1, &events_1).unwrap();
 
         // Block 2: one event
-        let events_2 = vec![
-            Event::new("asset", "mint", vec![("amount".into(), "50".into())]),
-        ];
+        let events_2 = vec![Event::new(
+            "asset",
+            "mint",
+            vec![("amount".into(), "50".into())],
+        )];
         writer.set_block_events(2, &events_2).unwrap();
 
         assert_eq!(view.get_block_events(1).unwrap().unwrap().len(), 2);
