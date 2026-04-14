@@ -5,8 +5,8 @@ set -euo pipefail
 # init-devnet.sh
 #
 # Initializes a local POLAY devnet environment.
-# Creates the data directory, generates validator keys, and produces the
-# genesis.json that all four validators share.
+# Uses `polay init` to generate genesis, keys, and data directories in one
+# step, then creates per-validator key copies for multi-node setups.
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,51 +51,47 @@ if [[ -d "${DEVNET_DIR}" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Create directory structure
+# Initialize with polay init (generates genesis + keys + data dirs)
 # ---------------------------------------------------------------------------
 
-info "Creating devnet directory structure..."
+info "Initializing devnet with ${NUM_VALIDATORS} validators..."
+
+"${POLAY_BIN}" init \
+    --output "${GENESIS_FILE}" \
+    --validators "${NUM_VALIDATORS}" \
+    --data-dir "${DEVNET_DIR}" \
+    --network devnet
+
+ok "Genesis + keys generated"
+
+# ---------------------------------------------------------------------------
+# Create per-validator key copies for multi-node deployment
+#
+# `polay init` generates a single validator.key. For multi-node setups,
+# each validator needs its own key. Generate additional keys with keygen.
+# ---------------------------------------------------------------------------
+
+info "Generating individual validator keys for multi-node deployment..."
+
 mkdir -p "${KEYS_DIR}"
+
+# Keep the existing validator.key as validator-1
+if [[ -f "${KEYS_DIR}/validator.key" ]]; then
+    cp "${KEYS_DIR}/validator.key" "${KEYS_DIR}/validator-1.key"
+    ok "  Validator 1: using genesis validator key"
+fi
+
+# Generate additional keys for validators 2+
+for i in $(seq 2 ${NUM_VALIDATORS}); do
+    KEY_FILE="${KEYS_DIR}/validator-${i}.key"
+    "${POLAY_BIN}" keygen --output "${KEY_FILE}" 2>/dev/null
+    ok "  Validator ${i}: key generated"
+done
+
+# Create per-validator data directories
 for i in $(seq 1 ${NUM_VALIDATORS}); do
     mkdir -p "${DEVNET_DIR}/validator-${i}"
 done
-
-# ---------------------------------------------------------------------------
-# Generate validator keys
-# ---------------------------------------------------------------------------
-
-info "Generating ${NUM_VALIDATORS} validator key pairs..."
-
-VALIDATOR_ADDRESSES=()
-for i in $(seq 1 ${NUM_VALIDATORS}); do
-    KEY_FILE="${KEYS_DIR}/validator-${i}.key"
-    "${POLAY_BIN}" keygen --output "${KEY_FILE}"
-    # Extract the public address from the key file (second line is the public key)
-    ADDRESS=$(sed -n '2p' "${KEY_FILE}")
-    VALIDATOR_ADDRESSES+=("${ADDRESS}")
-    ok "  Validator ${i}: ${ADDRESS:0:16}...${ADDRESS: -8}"
-done
-
-# ---------------------------------------------------------------------------
-# Generate genesis
-# ---------------------------------------------------------------------------
-
-info "Generating genesis configuration..."
-
-# Build the validator list argument
-VALIDATOR_ARGS=""
-for addr in "${VALIDATOR_ADDRESSES[@]}"; do
-    VALIDATOR_ARGS="${VALIDATOR_ARGS} --validator ${addr}"
-done
-
-"${POLAY_BIN}" init \
-    --chain-id "polay-devnet-1" \
-    --output "${GENESIS_FILE}" \
-    --initial-supply 100000000000000000 \
-    --block-time 2000 \
-    ${VALIDATOR_ARGS}
-
-ok "Genesis written to ${GENESIS_FILE}"
 
 # ---------------------------------------------------------------------------
 # Summary
@@ -109,27 +105,28 @@ echo ""
 echo "  Chain ID:         polay-devnet-1"
 echo "  Validators:       ${NUM_VALIDATORS}"
 echo "  Block time:       2000ms"
-echo "  Initial supply:   100,000,000 POL"
 echo ""
 echo "  Directory layout:"
 echo "    ${DEVNET_DIR}/"
 echo "    +-- genesis.json            Shared genesis configuration"
 echo "    +-- keys/"
+echo "    |   +-- validator.key       Genesis validator (same as validator-1)"
 for i in $(seq 1 ${NUM_VALIDATORS}); do
-    echo "    |   +-- validator-${i}.key     ${VALIDATOR_ADDRESSES[$((i-1))]:0:16}..."
+    echo "    |   +-- validator-${i}.key"
 done
-echo "    +-- validator-1/            Data dir for validator 1"
-echo "    +-- validator-2/            Data dir for validator 2"
-echo "    +-- validator-3/            Data dir for validator 3"
-echo "    +-- validator-4/            Data dir for validator 4"
+echo "    +-- validator-{1..${NUM_VALIDATORS}}/       Per-validator data dirs"
 echo ""
 echo "  Next steps:"
 echo ""
-echo "    # Start the full 4-node devnet with Docker:"
-echo "    docker compose up --build"
-echo ""
-echo "    # Or start a single local node:"
+echo "    # Start a single local node:"
 echo "    ./scripts/start-local.sh"
+echo ""
+echo "    # Start full 4-node devnet with Docker:"
+echo "    docker compose -f docker-compose.testnet.yml up --build"
+echo ""
+echo "    # Deploy to Hetzner:"
+echo "    cd deploy/hetzner && terraform apply"
+echo "    ./deploy-validators.sh"
 echo ""
 echo "    # Send sample transactions:"
 echo "    ./scripts/sample-transactions.sh"

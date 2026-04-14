@@ -1,0 +1,31 @@
+[Unit]
+Description=POLAY Validator Node
+Documentation=https://github.com/polaychain/polay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=polay
+Group=polay
+ExecStart=/usr/local/bin/polay run \
+    --genesis /opt/polay/data/genesis.json \
+    --data-dir /opt/polay/state \
+    --rpc-addr 0.0.0.0:9944 \
+    --validator-key /opt/polay/keys/validator.key \
+    --block-time 2000 \
+    --p2p-addr /ip4/0.0.0.0/tcp/30333 \
+    --boot-nodes BOOT_NODE_MULTIADDR
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=65535
+
+Environment=RUST_LOG=info
+
+# Security hardening
+ProtectSystem=full
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

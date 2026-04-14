@@ -1,0 +1,19 @@
+# Copy this file to terraform.tfvars and fill in your values.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+
+# Do NOT put your API token here. Use an environment variable instead:
+#   export HCLOUD_TOKEN="your-token"
+#   export TF_VAR_hcloud_token="your-token"
+# hcloud_token = "NEVER_COMMIT_SECRETS"
+ssh_key_name = "your-ssh-key-name"
+server_type  = "cpx21"               # 3 vCPU, 4GB RAM, 80GB — ~$7.50/mo each
+docker_image = "ghcr.io/polaychain/polay:main"
+
+# Global spread (default). Uncomment to customize:
+# validators = [
+#   { name = "validator-1", location = "nbg1" },  # Nuremberg, EU
+#   { name = "validator-2", location = "ash" },    # Ashburn, US-East
+#   { name = "validator-3", location = "hil" },    # Hillsboro, US-West
+#   { name = "validator-4", location = "sin" },    # Singapore, Asia
+# ]
