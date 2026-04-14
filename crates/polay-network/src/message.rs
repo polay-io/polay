@@ -64,7 +64,10 @@ pub enum NetworkMessage {
     NewTransaction(SignedTransaction),
 
     /// A block proposal from the designated proposer.
-    BlockProposal(Block),
+    /// Includes the consensus round and proposer address so that
+    /// re-proposals of the same block in later rounds produce distinct
+    /// gossipsub message IDs and receivers can identify the actual proposer.
+    BlockProposal { block: Block, round: u32, proposer: Address },
 
     /// A consensus vote (prevote or precommit) from a validator.
     ConsensusVote(ConsensusVoteMsg),

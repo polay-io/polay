@@ -1,6 +1,16 @@
-FROM rust:1.77 as builder
+FROM rust:latest AS builder
 
 WORKDIR /app
+
+# Install build dependencies for C libraries (zstd-sys, etc.)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        pkg-config \
+        libssl-dev \
+        cmake \
+        make \
+        clang && \
+    rm -rf /var/lib/apt/lists/*
 
 # Cache dependency builds by copying manifests first
 COPY Cargo.toml Cargo.lock ./
@@ -38,7 +48,7 @@ RUN cargo build --release --bin polay
 # ---------------------------------------------------------------------------
 # Runtime image
 # ---------------------------------------------------------------------------
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \

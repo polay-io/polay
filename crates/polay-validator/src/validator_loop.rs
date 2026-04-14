@@ -1,6 +1,7 @@
+use std::pin::Pin;
 use std::sync::Arc;
 
-use tokio::time::{self, Duration};
+use tokio::time::{self, Duration, Sleep};
 use tracing::{debug, error, info, warn};
 
 use polay_config::ChainConfig;
@@ -192,6 +193,12 @@ impl ValidatorNode {
         let block_interval = Duration::from_millis(self.chain_config.block_time_ms);
         let mut block_timer = time::interval(block_interval);
 
+        // Consensus step timeout — fires when the current consensus step has
+        // waited too long without progress (e.g. missing proposal or votes).
+        let mut consensus_timeout: Pin<Box<Sleep>> =
+            Box::pin(time::sleep(Duration::from_millis(3000)));
+        let mut timeout_active = false;
+
         info!(
             block_time_ms = self.chain_config.block_time_ms,
             address = %self.keypair.address(),
@@ -201,6 +208,12 @@ impl ValidatorNode {
         // If consensus is initialized, start the first round.
         if self.consensus.is_some() {
             self.on_block_timer().await;
+            // Schedule initial timeout so we don't get stuck if the first
+            // proposal is lost (e.g. peers not connected yet).
+            consensus_timeout
+                .as_mut()
+                .reset(tokio::time::Instant::now() + Duration::from_millis(3000));
+            timeout_active = true;
         }
 
         loop {
@@ -209,17 +222,55 @@ impl ValidatorNode {
                 tokio::select! {
                     _ = block_timer.tick() => {
                         self.on_block_timer_inner().await;
+                        // After proposing or advancing, schedule a timeout for
+                        // the current step if not already active.
+                        if !timeout_active {
+                            let dur = self.current_step_timeout_ms();
+                            consensus_timeout.as_mut().reset(
+                                tokio::time::Instant::now() + Duration::from_millis(dur),
+                            );
+                            timeout_active = true;
+                        }
+                    }
+                    _ = &mut consensus_timeout, if timeout_active => {
+                        timeout_active = false;
+                        if let Some(ref mut c) = self.consensus {
+                            info!(
+                                height = c.height,
+                                round = c.round,
+                                step = ?c.step,
+                                "consensus timeout fired"
+                            );
+                            let action = c.on_timeout();
+                            self.handle_consensus_action(action).await;
+                        }
                     }
                     Some(event) = network.recv_event() => {
                         match event {
                             P2PEvent::TransactionReceived(tx) => {
                                 self.on_received_transaction(tx).await;
                             }
-                            P2PEvent::BlockReceived(block) => {
-                                self.on_received_block(block).await;
+                            P2PEvent::BlockReceived { block, round, proposer } => {
+                                self.on_received_block(block, round, proposer).await;
+                                // A received proposal may have caused a round
+                                // skip, so reset the consensus timeout to give
+                                // the new step adequate time.
+                                let dur = self.current_step_timeout_ms();
+                                consensus_timeout.as_mut().reset(
+                                    tokio::time::Instant::now() + Duration::from_millis(dur),
+                                );
+                                timeout_active = true;
                             }
                             P2PEvent::ConsensusMessageReceived(msg) => {
                                 self.on_consensus_message(msg).await;
+                                // A received vote may have triggered a state
+                                // transition (quorum) or round skip.  Reset
+                                // the timeout for the current step.
+                                let dur = self.current_step_timeout_ms();
+                                consensus_timeout.as_mut().reset(
+                                    tokio::time::Instant::now() + Duration::from_millis(dur),
+                                );
+                                timeout_active = true;
                             }
                             P2PEvent::PeerConnected(peer) => {
                                 info!(%peer, "peer connected");
@@ -238,6 +289,20 @@ impl ValidatorNode {
                 block_timer.tick().await;
                 self.on_block_timer_inner().await;
             }
+        }
+    }
+
+    /// Return the appropriate timeout duration for the current consensus step.
+    fn current_step_timeout_ms(&self) -> u64 {
+        match self.consensus.as_ref() {
+            Some(c) => match c.step {
+                polay_consensus::ConsensusState::NewRound
+                | polay_consensus::ConsensusState::Propose => 3000,
+                polay_consensus::ConsensusState::Prevote => 2000,
+                polay_consensus::ConsensusState::Precommit => 2000,
+                polay_consensus::ConsensusState::Commit => 3000,
+            },
+            None => 3000,
         }
     }
 
@@ -288,18 +353,55 @@ impl ValidatorNode {
         // If we are the proposer for the current height/round, produce and
         // broadcast a proposal.
         if is_proposer && is_start_state {
-            if let Some(c) = self.consensus.as_ref() {
-                info!(
-                    height = c.height,
-                    round = c.round,
-                    "we are the proposer, producing block"
-                );
-            }
+            // If we have a valid block from a prior round (a block that
+            // achieved prevote quorum but failed to get precommit quorum),
+            // re-propose it. This ensures validators locked on that block
+            // will prevote for it instead of sending nil.
+            let result = if let Some(valid_prop) =
+                self.consensus.as_ref().and_then(|c| c.valid_proposal.clone())
+            {
+                let round = self.consensus.as_ref().map(|c| c.round).unwrap_or(0);
+                let block_hash = *valid_prop.block.hash();
+                let height = valid_prop.height;
 
-            match self.produce_proposal().await {
+                let mut proposal = valid_prop;
+                proposal.round = round;
+                proposal.proposer = self.keypair.address();
+
+                let prevote = Vote {
+                    height,
+                    round,
+                    vote_type: VoteType::Prevote,
+                    block_hash,
+                    voter: self.keypair.address(),
+                    signature: Signature::ZERO,
+                };
+
+                info!(
+                    height,
+                    round,
+                    block_hash = %block_hash,
+                    "re-proposing valid block from prior round"
+                );
+
+                Ok((proposal, prevote))
+            } else {
+                if let Some(c) = self.consensus.as_ref() {
+                    info!(
+                        height = c.height,
+                        round = c.round,
+                        "we are the proposer, producing block"
+                    );
+                }
+                self.produce_proposal().await
+            };
+
+            match result {
                 Ok((proposal, prevote)) => {
                     let proposal_clone = proposal.clone();
                     let block_for_broadcast = proposal.block.clone();
+                    let broadcast_round = proposal.round;
+                    let broadcast_proposer = proposal.proposer;
 
                     // Feed our own proposal into the state machine.
                     let proposal_action = self
@@ -312,27 +414,16 @@ impl ValidatorNode {
                     }
 
                     // Broadcast the block as a proposal.
-                    self.broadcast_block(block_for_broadcast).await;
+                    self.broadcast_block(block_for_broadcast, broadcast_round, broadcast_proposer).await;
 
-                    // Broadcast our prevote.
-                    self.broadcast_vote(&prevote).await;
-
-                    // Feed our own prevote into the state machine.
-                    let prevote_action =
-                        self.consensus
-                            .as_mut()
-                            .and_then(|c| match c.on_prevote(prevote) {
-                                Ok(Some(action)) => Some(action),
-                                Ok(None) => None,
-                                Err(e) => {
-                                    debug!(error = %e, "own prevote processing note");
-                                    None
-                                }
-                            });
-
-                    if let Some(action) = prevote_action {
-                        self.handle_consensus_action(action).await;
-                    }
+                    // Note: the prevote is already broadcast and fed back
+                    // to the state machine by handle_consensus_action above
+                    // (which processes the SendPrevote from on_proposal).
+                    // We intentionally do NOT broadcast `prevote` from
+                    // produce_proposal separately, because the state
+                    // machine may have decided on a different prevote hash
+                    // (e.g. due to BFT locking).
+                    let _ = prevote; // suppress unused warning
                 }
                 Err(e) => {
                     error!(error = %e, "failed to produce proposal");
@@ -360,15 +451,18 @@ impl ValidatorNode {
 
     // -- Received block handler --------------------------------------------
 
-    async fn on_received_block(&mut self, block: polay_types::block::Block) {
+    async fn on_received_block(&mut self, block: polay_types::block::Block, msg_round: u32, msg_proposer: Address) {
         if self.consensus.is_none() {
             return;
         }
 
         let block_hash = *block.hash();
-        let proposer = block.header.proposer;
+        // Use the proposer and round from the network message so re-proposals
+        // carry the re-proposer's identity (the expected proposer for the
+        // current round) rather than the original block creator's address.
+        let proposer = msg_proposer;
         let height = block.height();
-        let round = self.consensus.as_ref().map(|c| c.round).unwrap_or(0);
+        let round = msg_round;
 
         info!(
             height,
@@ -430,12 +524,12 @@ impl ValidatorNode {
             return;
         }
 
-        debug!(
+        info!(
             height = msg.height,
             round = msg.round,
             vote_type = %msg.vote_type,
             voter = %msg.voter,
-            "received consensus message"
+            "received consensus vote from network"
         );
 
         let vote = Vote {
@@ -488,7 +582,7 @@ impl ValidatorNode {
                     round = proposal.round,
                     "broadcasting proposal"
                 );
-                self.broadcast_block(proposal.block).await;
+                self.broadcast_block(proposal.block, proposal.round, proposal.proposer).await;
             }
             ConsensusAction::SendPrevote(vote) => {
                 info!(
@@ -498,6 +592,50 @@ impl ValidatorNode {
                     "broadcasting prevote"
                 );
                 self.broadcast_vote(&vote).await;
+
+                // Feed our own prevote into the state machine so it
+                // counts toward quorum.  If this triggers a precommit
+                // (quorum reached), handle it inline.
+                let precommit_action =
+                    self.consensus
+                        .as_mut()
+                        .and_then(|c| match c.on_prevote(vote) {
+                            Ok(Some(action)) => Some(action),
+                            Ok(None) => None,
+                            Err(_) => None,
+                        });
+
+                if let Some(ConsensusAction::SendPrecommit(pc_vote)) = precommit_action {
+                    info!(
+                        height = pc_vote.height,
+                        round = pc_vote.round,
+                        block_hash = %pc_vote.block_hash,
+                        "broadcasting precommit"
+                    );
+                    self.broadcast_vote(&pc_vote).await;
+
+                    // Feed our own precommit, check for commit.
+                    let commit_action =
+                        self.consensus
+                            .as_mut()
+                            .and_then(|c| match c.on_precommit(pc_vote) {
+                                Ok(Some(action)) => Some(action),
+                                Ok(None) => None,
+                                Err(e) => {
+                                    debug!(error = %e, "own precommit processing note");
+                                    None
+                                }
+                            });
+
+                    if let Some(ConsensusAction::CommitBlock {
+                        height,
+                        block_hash,
+                        proof,
+                    }) = commit_action
+                    {
+                        self.handle_commit(height, block_hash, &proof).await;
+                    }
+                }
             }
             ConsensusAction::SendPrecommit(vote) => {
                 info!(
@@ -541,8 +679,13 @@ impl ValidatorNode {
             ConsensusAction::ScheduleTimeout { step, duration_ms } => {
                 debug!(
                     ?step,
-                    duration_ms, "consensus timeout scheduled (ignored in timer-driven mode)"
+                    duration_ms, "consensus timeout scheduled"
                 );
+                // The timeout is managed by the run() loop via the
+                // consensus_timeout future. The run() loop resets the timeout
+                // after each block timer tick and consensus action, so this
+                // action is informational — the actual timeout is driven by
+                // the select loop.
             }
         }
     }
@@ -671,9 +814,9 @@ impl ValidatorNode {
 
     // -- Broadcast helpers -------------------------------------------------
 
-    async fn broadcast_block(&self, block: polay_types::block::Block) {
+    async fn broadcast_block(&self, block: polay_types::block::Block, round: u32, proposer: Address) {
         if let Some(ref network) = self.network {
-            if let Err(e) = network.broadcast_block(block).await {
+            if let Err(e) = network.broadcast_block(block, round, proposer).await {
                 warn!(error = %e, "failed to broadcast block");
             }
         }

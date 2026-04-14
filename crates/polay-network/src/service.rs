@@ -15,6 +15,7 @@ use crate::peer_manager::{PeerManager, MAX_PEERS, MIN_PEERS};
 use crate::rate_limiter::PeerRateLimiter;
 use crate::topics::{TOPIC_BLOCKS, TOPIC_CONSENSUS, TOPIC_TRANSACTIONS};
 
+use polay_types::address::Address;
 use polay_types::block::Block;
 use polay_types::transaction::SignedTransaction;
 
@@ -68,7 +69,7 @@ pub enum P2PCommand {
     /// Broadcast a signed transaction to peers.
     BroadcastTransaction(SignedTransaction),
     /// Broadcast a block proposal to peers.
-    BroadcastBlock(Block),
+    BroadcastBlock { block: Block, round: u32, proposer: Address },
     /// Broadcast a consensus vote message to peers.
     BroadcastConsensusMessage(ConsensusVoteMsg),
     /// Request the current peer count.
@@ -83,7 +84,7 @@ pub enum P2PEvent {
     /// A transaction was received from the network.
     TransactionReceived(SignedTransaction),
     /// A block was received from the network.
-    BlockReceived(Block),
+    BlockReceived { block: Block, round: u32, proposer: Address },
     /// A consensus vote message was received from the network.
     ConsensusMessageReceived(ConsensusVoteMsg),
     /// A peer connected.
@@ -168,6 +169,7 @@ impl P2PService {
                 PolayBehaviour { gossipsub, mdns }
             })
             .map_err(|e| NetworkError::TransportError(e.to_string()))?
+            .with_swarm_config(|cfg| cfg.with_idle_connection_timeout(Duration::from_secs(60)))
             .build();
 
         // Subscribe to gossipsub topics.
@@ -245,9 +247,9 @@ impl P2PService {
     }
 
     /// Broadcast a block to the network.
-    pub async fn broadcast_block(&self, block: Block) -> Result<(), NetworkError> {
+    pub async fn broadcast_block(&self, block: Block, round: u32, proposer: Address) -> Result<(), NetworkError> {
         self.command_tx
-            .send(P2PCommand::BroadcastBlock(block))
+            .send(P2PCommand::BroadcastBlock { block, round, proposer })
             .await
             .map_err(|_| NetworkError::ChannelClosed)
     }
@@ -380,11 +382,11 @@ impl P2PService {
                     "transaction",
                 );
             }
-            P2PCommand::BroadcastBlock(block) => {
+            P2PCommand::BroadcastBlock { block, round, proposer } => {
                 Self::publish_envelope(
                     swarm,
                     block_topic,
-                    NetworkMessage::BlockProposal(block),
+                    NetworkMessage::BlockProposal { block, round, proposer },
                     "block",
                 );
             }
@@ -584,8 +586,8 @@ impl P2PService {
             NetworkMessage::NewTransaction(tx) if topic_str == TOPIC_TRANSACTIONS => {
                 let _ = event_tx.send(P2PEvent::TransactionReceived(tx)).await;
             }
-            NetworkMessage::BlockProposal(block) if topic_str == TOPIC_BLOCKS => {
-                let _ = event_tx.send(P2PEvent::BlockReceived(block)).await;
+            NetworkMessage::BlockProposal { block, round, proposer } if topic_str == TOPIC_BLOCKS => {
+                let _ = event_tx.send(P2PEvent::BlockReceived { block, round, proposer }).await;
             }
             NetworkMessage::ConsensusVote(msg) if topic_str == TOPIC_CONSENSUS => {
                 let _ = event_tx.send(P2PEvent::ConsensusMessageReceived(msg)).await;
@@ -625,7 +627,8 @@ impl P2PService {
             match serde_json::from_slice::<Block>(data) {
                 Ok(block) => {
                     peer_manager.record_good_message(peer_id);
-                    let _ = event_tx.send(P2PEvent::BlockReceived(block)).await;
+                    let proposer = block.header.proposer;
+                    let _ = event_tx.send(P2PEvent::BlockReceived { block, round: 0, proposer }).await;
                 }
                 Err(e) => {
                     warn!(%peer_id, error = %e, "failed to deserialize legacy block");

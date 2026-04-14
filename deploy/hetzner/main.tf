@@ -52,7 +52,7 @@ variable "server_type" {
 
 variable "docker_image" {
   description = "Docker image for the POLAY node"
-  default     = "ghcr.io/polaychain/polay:main"
+  default     = "ghcr.io/polay-io/polay:main"
 }
 
 variable "validators" {

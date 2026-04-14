@@ -67,6 +67,16 @@ pub struct ConsensusStateMachine {
     /// across rounds within the same height. Used to re-propose when moving
     /// to a new round.
     pub valid_block: Option<(u32, Hash)>,
+    /// The full proposal corresponding to `valid_block`, preserved across
+    /// rounds so the proposer can re-propose it instead of creating a new
+    /// block (which would have a different hash and break BFT locking).
+    pub valid_proposal: Option<Proposal>,
+    /// Prevotes received for future rounds, keyed by round then voter.
+    /// When the node advances to a buffered round, these are loaded into
+    /// the active `prevotes` map.
+    pub future_prevotes: HashMap<u32, HashMap<Address, Vote>>,
+    /// Precommits received for future rounds, keyed by round then voter.
+    pub future_precommits: HashMap<u32, HashMap<Address, Vote>>,
 }
 
 impl ConsensusStateMachine {
@@ -89,6 +99,9 @@ impl ConsensusStateMachine {
             precommits: HashMap::new(),
             locked_block: None,
             valid_block: None,
+            valid_proposal: None,
+            future_prevotes: HashMap::new(),
+            future_precommits: HashMap::new(),
         }
     }
 
@@ -131,23 +144,46 @@ impl ConsensusStateMachine {
             });
         }
 
-        // Round check.
-        if proposal.round != self.round {
+        // Past round: reject.
+        if proposal.round < self.round {
             return Err(ConsensusError::WrongRound {
                 expected: self.round,
                 got: proposal.round,
             });
         }
 
-        // Proposer check.
+        // Future round: skip forward.  A valid proposal from the correct
+        // proposer for that round is sufficient proof that the network has
+        // moved ahead.  We verify the proposer *after* advancing so that
+        // `current_proposer()` uses the proposal's round.
+        if proposal.round > self.round {
+            info!(
+                current_round = self.round,
+                proposal_round = proposal.round,
+                "skipping to future round (received valid proposal)"
+            );
+            self.skip_to_round(proposal.round);
+        }
+
+        // Proposer check — but allow re-proposed blocks whose hash matches
+        // our valid_block (they were originally created by a different
+        // proposer but re-proposed by the current round's proposer).
         let expected_proposer = self.current_proposer();
         if proposal.proposer != expected_proposer {
-            warn!(
-                expected = %expected_proposer,
-                got = %proposal.proposer,
-                "rejecting proposal from wrong proposer"
-            );
-            return Err(ConsensusError::InvalidProposer);
+            let block_hash = *proposal.block.hash();
+            let is_valid_reproposal = self
+                .valid_block
+                .map(|(_, h)| h == block_hash)
+                .unwrap_or(false);
+
+            if !is_valid_reproposal {
+                warn!(
+                    expected = %expected_proposer,
+                    got = %proposal.proposer,
+                    "rejecting proposal from wrong proposer"
+                );
+                return Err(ConsensusError::InvalidProposer);
+            }
         }
 
         // Verify proposer is in the validator set.
@@ -205,9 +241,41 @@ impl ConsensusStateMachine {
     /// block hash, the machine transitions to the `Precommit` step and
     /// returns a [`ConsensusAction::SendPrecommit`].
     pub fn on_prevote(&mut self, vote: Vote) -> ConsensusResult<Option<ConsensusAction>> {
-        self.validate_vote(&vote, VoteType::Prevote)?;
+        self.validate_vote_basics(&vote, VoteType::Prevote)?;
 
-        // Duplicate check.
+        // Past round: reject.
+        if vote.round < self.round {
+            return Err(ConsensusError::WrongRound {
+                expected: self.round,
+                got: vote.round,
+            });
+        }
+
+        // Future round: buffer and check for f+1 catch-up.
+        if vote.round > self.round {
+            let round_votes = self.future_prevotes.entry(vote.round).or_default();
+            if round_votes.contains_key(&vote.voter) {
+                return Err(ConsensusError::DuplicateVote);
+            }
+            round_votes.insert(vote.voter, vote.clone());
+
+            if self.should_skip_to_round(vote.round) {
+                info!(
+                    current_round = self.round,
+                    target_round = vote.round,
+                    "skipping to future round (f+1 votes observed)"
+                );
+                self.skip_to_round(vote.round);
+                return Ok(Some(ConsensusAction::ScheduleTimeout {
+                    step: ConsensusState::Propose,
+                    duration_ms: PROPOSE_TIMEOUT_MS,
+                }));
+            }
+
+            return Ok(None);
+        }
+
+        // Current round: normal processing.
         if self.prevotes.contains_key(&vote.voter) {
             return Err(ConsensusError::DuplicateVote);
         }
@@ -233,6 +301,7 @@ impl ConsensusStateMachine {
                     // Lock on this block.
                     self.locked_block = Some((self.round, hash));
                     self.valid_block = Some((self.round, hash));
+                    self.valid_proposal = self.proposal.clone();
 
                     info!(
                         height = self.height,
@@ -271,9 +340,41 @@ impl ConsensusStateMachine {
     /// returns a [`ConsensusAction::CommitBlock`] together with a
     /// [`CommitProof`].
     pub fn on_precommit(&mut self, vote: Vote) -> ConsensusResult<Option<ConsensusAction>> {
-        self.validate_vote(&vote, VoteType::Precommit)?;
+        self.validate_vote_basics(&vote, VoteType::Precommit)?;
 
-        // Duplicate check.
+        // Past round: reject.
+        if vote.round < self.round {
+            return Err(ConsensusError::WrongRound {
+                expected: self.round,
+                got: vote.round,
+            });
+        }
+
+        // Future round: buffer and check for f+1 catch-up.
+        if vote.round > self.round {
+            let round_votes = self.future_precommits.entry(vote.round).or_default();
+            if round_votes.contains_key(&vote.voter) {
+                return Err(ConsensusError::DuplicateVote);
+            }
+            round_votes.insert(vote.voter, vote.clone());
+
+            if self.should_skip_to_round(vote.round) {
+                info!(
+                    current_round = self.round,
+                    target_round = vote.round,
+                    "skipping to future round (f+1 votes observed)"
+                );
+                self.skip_to_round(vote.round);
+                return Ok(Some(ConsensusAction::ScheduleTimeout {
+                    step: ConsensusState::Propose,
+                    duration_ms: PROPOSE_TIMEOUT_MS,
+                }));
+            }
+
+            return Ok(None);
+        }
+
+        // Current round: normal processing.
         if self.precommits.contains_key(&vote.voter) {
             return Err(ConsensusError::DuplicateVote);
         }
@@ -398,6 +499,9 @@ impl ConsensusStateMachine {
         self.precommits.clear();
         self.locked_block = None;
         self.valid_block = None;
+        self.valid_proposal = None;
+        self.future_prevotes.clear();
+        self.future_precommits.clear();
     }
 
     /// Replace the validator set used by the consensus engine.
@@ -453,11 +557,24 @@ impl ConsensusStateMachine {
     // -----------------------------------------------------------------
 
     /// Start a new round: clear per-round state but preserve the lock.
+    /// Also loads any buffered future votes for the new round.
     fn start_new_round(&mut self) -> ConsensusAction {
         self.step = ConsensusState::Propose;
         self.proposal = None;
         self.prevotes.clear();
         self.precommits.clear();
+
+        // Load buffered votes for this round (may have arrived while we
+        // were still in a prior round).
+        if let Some(pv) = self.future_prevotes.remove(&self.round) {
+            self.prevotes = pv;
+        }
+        if let Some(pc) = self.future_precommits.remove(&self.round) {
+            self.precommits = pc;
+        }
+        // Discard stale buffers for rounds we've passed.
+        self.future_prevotes.retain(|r, _| *r > self.round);
+        self.future_precommits.retain(|r, _| *r > self.round);
 
         ConsensusAction::ScheduleTimeout {
             step: ConsensusState::Propose,
@@ -465,18 +582,60 @@ impl ConsensusStateMachine {
         }
     }
 
-    /// Validate common vote properties.
-    fn validate_vote(&self, vote: &Vote, expected_type: VoteType) -> ConsensusResult<()> {
+    /// Skip directly to a future round: reset per-round state and load
+    /// any buffered votes for the target round.
+    fn skip_to_round(&mut self, target: u32) {
+        debug_assert!(target > self.round);
+        self.round = target;
+        self.step = ConsensusState::Propose;
+        self.proposal = None;
+        self.prevotes.clear();
+        self.precommits.clear();
+
+        // Load buffered votes for the target round.
+        if let Some(pv) = self.future_prevotes.remove(&target) {
+            self.prevotes = pv;
+        }
+        if let Some(pc) = self.future_precommits.remove(&target) {
+            self.precommits = pc;
+        }
+        // Discard stale buffers.
+        self.future_prevotes.retain(|r, _| *r > target);
+        self.future_precommits.retain(|r, _| *r > target);
+    }
+
+    /// Check whether f+1 unique validators have cast votes (prevotes or
+    /// precommits) for the given future round.  If so, this node should
+    /// skip to that round to stay in sync with the network.
+    fn should_skip_to_round(&self, round: u32) -> bool {
+        let mut voters: std::collections::HashSet<Address> = std::collections::HashSet::new();
+        if let Some(pv) = self.future_prevotes.get(&round) {
+            voters.extend(pv.keys());
+        }
+        if let Some(pc) = self.future_precommits.get(&round) {
+            voters.extend(pc.keys());
+        }
+        let stake: u64 = voters
+            .iter()
+            .map(|v| self.validator_set.get_stake(v))
+            .sum();
+        stake >= self.skip_threshold()
+    }
+
+    /// f+1 stake threshold: if this much stake has voted for a future
+    /// round, we should skip to it.
+    fn skip_threshold(&self) -> u64 {
+        self.validator_set.total_stake / 3 + 1
+    }
+
+    /// Validate vote properties that do NOT depend on round (height, type,
+    /// validator membership).  Round checks are done inline by the callers
+    /// so they can distinguish past vs. future rounds.
+    fn validate_vote_basics(&self, vote: &Vote, expected_type: VoteType) -> ConsensusResult<()> {
         if vote.height != self.height {
             return Err(ConsensusError::WrongHeight {
                 expected: self.height,
                 got: vote.height,
-            });
-        }
-        if vote.round != self.round {
-            return Err(ConsensusError::WrongRound {
-                expected: self.round,
-                got: vote.round,
             });
         }
         if vote.vote_type != expected_type {
@@ -683,15 +842,16 @@ mod tests {
     }
 
     #[test]
-    fn on_proposal_wrong_round() {
+    fn on_proposal_past_round_rejected() {
         let (vs, addrs) = make_validator_set(3);
         let mut sm = ConsensusStateMachine::new(0, vs, addrs[0]);
+        sm.round = 5;
         sm.step = ConsensusState::Propose;
 
         let block = make_block(0, addrs[0]);
         let proposal = Proposal {
             height: 0,
-            round: 3,
+            round: 2,
             block,
             proposer: addrs[0],
             signature: Signature::ZERO,
@@ -701,10 +861,32 @@ mod tests {
         assert!(matches!(
             err,
             ConsensusError::WrongRound {
-                expected: 0,
-                got: 3
+                expected: 5,
+                got: 2
             }
         ));
+    }
+
+    #[test]
+    fn on_proposal_future_round_triggers_skip() {
+        let (vs, addrs) = make_validator_set(3);
+        let mut sm = ConsensusStateMachine::new(0, vs, addrs[0]);
+        sm.step = ConsensusState::Propose;
+        // sm is at round 0, we'll send a proposal for round 3.
+        // Proposer for (height=0, round=3) = (0+3) % 3 = 0 -> addrs[0]
+        let block = make_block(0, addrs[0]);
+        let proposal = Proposal {
+            height: 0,
+            round: 3,
+            block,
+            proposer: addrs[0],
+            signature: Signature::ZERO,
+        };
+
+        let action = sm.on_proposal(proposal).unwrap();
+        assert!(matches!(action, ConsensusAction::SendPrevote(_)));
+        assert_eq!(sm.round, 3);
+        assert_eq!(sm.step, ConsensusState::Prevote);
     }
 
     // -----------------------------------------------------------------
@@ -990,6 +1172,8 @@ mod tests {
         assert!(sm.precommits.is_empty());
         assert!(sm.locked_block.is_none());
         assert!(sm.valid_block.is_none());
+        assert!(sm.future_prevotes.is_empty());
+        assert!(sm.future_precommits.is_empty());
     }
 
     // -----------------------------------------------------------------

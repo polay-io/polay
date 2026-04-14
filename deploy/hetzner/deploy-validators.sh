@@ -26,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 DEVNET_DIR="${PROJECT_ROOT}/devnet-data"
 GENESIS_FILE="${DEVNET_DIR}/genesis.json"
-DOCKER_IMAGE="ghcr.io/polaychain/polay:main"
+DOCKER_IMAGE="ghcr.io/polay-io/polay:main"
 BLOCK_TIME=2000
 
 # ---------------------------------------------------------------------------
