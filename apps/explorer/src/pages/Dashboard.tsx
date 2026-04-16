@@ -9,14 +9,18 @@ import {
   type BlockSummary,
 } from "../api";
 
-function formatTime(ts: string): string {
-  const d = new Date(ts);
+function formatTime(ts: number): string {
+  const d = new Date(ts * 1000);
   return d.toLocaleTimeString();
 }
 
 function truncHash(h: string, len = 10): string {
   if (!h) return "";
   return h.length > len * 2 ? `${h.slice(0, len)}...${h.slice(-len)}` : h;
+}
+
+function formatPOL(raw: number): string {
+  return (raw / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
@@ -32,16 +36,19 @@ export default function Dashboard() {
   const chain = useQuery<ChainInfo>({
     queryKey: ["chainInfo"],
     queryFn: fetchChainInfo,
+    retry: 2,
   });
 
   const supply = useQuery<SupplyInfo>({
     queryKey: ["supplyInfo"],
     queryFn: fetchSupplyInfo,
+    retry: 2,
   });
 
   const blocks = useQuery<BlockSummary[]>({
     queryKey: ["recentBlocks"],
     queryFn: () => fetchRecentBlocks(10),
+    retry: 2,
   });
 
   return (
@@ -55,10 +62,7 @@ export default function Dashboard() {
         {chain.error && <p className="error">Failed to load chain info</p>}
         {chain.data && (
           <div className="stats-grid">
-            <StatCard label="Block Height" value={chain.data.height} />
-            <StatCard label="Finalized" value={chain.data.finalized_height} />
-            <StatCard label="Epoch" value={chain.data.epoch} />
-            <StatCard label="Validators" value={chain.data.active_validators} />
+            <StatCard label="Block Height" value={chain.data.height.toLocaleString()} />
             <StatCard label="Chain ID" value={chain.data.chain_id} />
           </div>
         )}
@@ -71,11 +75,11 @@ export default function Dashboard() {
         {supply.error && <p className="error">Failed to load supply info</p>}
         {supply.data && (
           <div className="stats-grid">
-            <StatCard label="Total Supply" value={supply.data.total_supply} />
-            <StatCard label="Circulating" value={supply.data.circulating_supply} />
-            <StatCard label="Staked" value={supply.data.staked} />
-            <StatCard label="Burned" value={supply.data.burned} />
-            <StatCard label="Treasury" value={supply.data.treasury} />
+            <StatCard label="Total Supply" value={`${formatPOL(supply.data.total_supply)} POL`} />
+            <StatCard label="Circulating" value={`${formatPOL(supply.data.circulating_supply)} POL`} />
+            <StatCard label="Staked" value={`${formatPOL(supply.data.total_staked)} POL`} />
+            <StatCard label="Burned" value={`${formatPOL(supply.data.total_burned)} POL`} />
+            <StatCard label="Treasury" value={`${formatPOL(supply.data.treasury_balance)} POL`} />
           </div>
         )}
       </section>
@@ -85,14 +89,14 @@ export default function Dashboard() {
         <h3>Latest Blocks</h3>
         {blocks.isLoading && <p className="muted">Loading...</p>}
         {blocks.error && <p className="error">Failed to load blocks</p>}
-        {blocks.data && (
+        {blocks.data && blocks.data.length > 0 && (
           <table className="data-table">
             <thead>
               <tr>
                 <th>Height</th>
                 <th>Hash</th>
                 <th>Txns</th>
-                <th>Validator</th>
+                <th>Proposer</th>
                 <th>Time</th>
               </tr>
             </thead>
@@ -110,7 +114,7 @@ export default function Dashboard() {
                     </Link>
                   </td>
                   <td>{b.tx_count}</td>
-                  <td className="mono">{truncHash(b.validator, 8)}</td>
+                  <td className="mono">{truncHash(b.proposer, 8)}</td>
                   <td>{formatTime(b.timestamp)}</td>
                 </tr>
               ))}

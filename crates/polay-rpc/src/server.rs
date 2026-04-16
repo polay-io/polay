@@ -9,6 +9,7 @@
 //! `polay_subscribeEvents` subscription methods.
 
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
@@ -60,6 +61,8 @@ pub struct RpcServer {
     pub submission_throttle: Arc<SubmissionThrottle>,
     /// Per-IP rate limiter for all RPC requests.
     pub ip_rate_limiter: Arc<IpRateLimiter>,
+    /// Live peer count, updated by the validator loop.
+    pub peer_count: Arc<AtomicU32>,
 }
 
 impl RpcServer {
@@ -69,6 +72,7 @@ impl RpcServer {
         mempool: Arc<Mempool>,
         chain_config: ChainConfig,
         event_bus: Arc<EventBus>,
+        peer_count: Arc<AtomicU32>,
     ) -> Self {
         let max_per_sec = chain_config.rpc_max_submissions_per_second;
         Self {
@@ -81,6 +85,7 @@ impl RpcServer {
                 200, // 200 requests/sec per IP
                 50,  // 50 concurrent connections per IP
             )),
+            peer_count,
         }
     }
 }
@@ -939,28 +944,7 @@ pub fn build_rpc_module(ctx: Arc<RpcServer>) -> Result<RpcModule<()>, RpcError> 
         module
             .register_async_method("polay_getBlockReward", move |_params, _, _| {
                 let ctx = Arc::clone(&ctx);
-                async move {
-                    let view = StateView::new(ctx.store.as_ref());
-                    let supply = view
-                        .get_supply_info()
-                        .map_err(state_err)?
-                        .unwrap_or_default();
-                    let total_staked = supply.total_staked;
-                    let inflation = &ctx.chain_config.inflation_params;
-                    let epoch_reward = polay_staking::StakingModule::calculate_epoch_rewards(
-                        supply.total_supply,
-                        total_staked,
-                        inflation,
-                        ctx.chain_config.epoch_length,
-                    );
-                    // Block reward = epoch_reward / epoch_length
-                    let block_reward = if ctx.chain_config.epoch_length > 0 {
-                        epoch_reward / ctx.chain_config.epoch_length
-                    } else {
-                        0
-                    };
-                    ok(block_reward)
-                }
+                async move { ok(ctx.chain_config.block_reward) }
             })
             .map_err(|e| RpcError::RegistrationError(e.to_string()))?;
     }
@@ -1014,7 +998,7 @@ pub fn build_rpc_module(ctx: Arc<RpcServer>) -> Result<RpcModule<()>, RpcError> 
                         height,
                         latest_hash: latest_hash.to_hex(),
                         state_root,
-                        peer_count: 0, // P2P peer count not available at RPC layer
+                        peer_count: ctx.peer_count.load(Ordering::Relaxed) as u64,
                         mempool_size: ctx.mempool.size(),
                         uptime_seconds,
                         block_time_ms: ctx.chain_config.block_time_ms,
@@ -1202,6 +1186,7 @@ pub async fn start_rpc_server(
     mempool: Arc<Mempool>,
     chain_config: ChainConfig,
     event_bus: Arc<EventBus>,
+    peer_count: Arc<AtomicU32>,
 ) -> Result<ServerHandle, RpcError> {
     let cors = CorsLayer::new()
         .allow_methods(Any)
@@ -1223,7 +1208,7 @@ pub async fn start_rpc_server(
         .await
         .map_err(|e| RpcError::ServerStartError(format!("failed to bind RPC server: {e}")))?;
 
-    let ctx = Arc::new(RpcServer::new(store, mempool, chain_config, event_bus));
+    let ctx = Arc::new(RpcServer::new(store, mempool, chain_config, event_bus, peer_count));
     let module = build_rpc_module(ctx)?;
 
     let handle = server.start(module);
@@ -1278,7 +1263,8 @@ mod tests {
     fn make_rpc_module(store: Arc<dyn StateStore>, mempool: Arc<Mempool>) -> RpcModule<()> {
         let config = ChainConfig::default();
         let event_bus = Arc::new(EventBus::new(64));
-        let ctx = Arc::new(RpcServer::new(store, mempool, config, event_bus));
+        let peer_count = Arc::new(AtomicU32::new(0));
+        let ctx = Arc::new(RpcServer::new(store, mempool, config, event_bus, peer_count));
         build_rpc_module(ctx).unwrap()
     }
 

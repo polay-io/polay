@@ -211,12 +211,14 @@ async fn cmd_run(
     let rpc_store = node.store_arc();
     let rpc_mempool = node.mempool();
     let rpc_chain_config = genesis.chain_config.clone();
+    let rpc_peer_count = node.peer_count_handle();
     let rpc_handle = start_rpc_server(
         &rpc_addr,
         rpc_store,
         rpc_mempool,
         rpc_chain_config,
         Arc::clone(&event_bus),
+        rpc_peer_count,
     )
     .await
     .map_err(|e| anyhow::anyhow!("failed to start RPC server: {}", e))?;

@@ -216,12 +216,12 @@ export default function Network() {
             </thead>
             <tbody>
               <tr>
-                <td className="mono">http://127.0.0.1:9944</td>
+                <td className="mono">http://178.104.202.101:9944</td>
                 <td>JSON-RPC</td>
                 <td><span className={`badge ${isHealthy ? "badge-green" : "badge-red"}`}>{isHealthy ? "Online" : "Offline"}</span></td>
               </tr>
               <tr>
-                <td className="mono">ws://127.0.0.1:9944</td>
+                <td className="mono">ws://178.104.202.101:9944</td>
                 <td>WebSocket</td>
                 <td><span className={`badge ${wsConnected ? "badge-green" : "badge-red"}`}>{wsConnected ? "Connected" : "Disconnected"}</span></td>
               </tr>

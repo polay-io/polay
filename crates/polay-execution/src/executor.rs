@@ -326,6 +326,60 @@ impl Executor {
         self.chain_config.min_gas_price
     }
 
+    /// Return the configured per-block reward amount.
+    pub fn block_reward(&self) -> u64 {
+        self.chain_config.block_reward
+    }
+
+    /// Credit the per-block reward to the proposer and update supply/validator
+    /// state.  This MUST only be called once per block during the commit phase
+    /// (not during proposal or validation) to avoid double-minting when a
+    /// consensus round is retried.
+    pub fn apply_block_reward(
+        &self,
+        store: &dyn StateStore,
+        block_proposer: &Address,
+        height: u64,
+    ) {
+        let reward = self.chain_config.block_reward;
+        if reward == 0 || *block_proposer == Address::ZERO {
+            return;
+        }
+
+        let view = StateView::new(store);
+        let writer = StateWriter::new(store);
+
+        // Credit reward to proposer account.
+        let mut proposer_acct = view
+            .get_account(block_proposer)
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| AccountState::new(*block_proposer, 0));
+        proposer_acct.balance = proposer_acct.balance.saturating_add(reward);
+        let _ = writer.set_account(&proposer_acct);
+
+        // Update supply: new tokens are minted.
+        if let Ok(Some(mut supply)) = view.get_supply_info() {
+            supply.total_supply = supply.total_supply.saturating_add(reward);
+            supply.total_minted = supply.total_minted.saturating_add(reward);
+            supply.recompute_circulating();
+            let _ = writer.set_supply_info(&supply);
+        }
+
+        // Increment blocks_produced on the validator.
+        if let Ok(Some(mut vi)) = view.get_validator(block_proposer) {
+            vi.blocks_produced = vi.blocks_produced.saturating_add(1);
+            let _ = writer.set_validator(&vi);
+        }
+
+        debug!(
+            height,
+            proposer = %block_proposer,
+            reward,
+            "block reward credited to proposer"
+        );
+    }
+
     /// Execute a single transaction with panic safety.
     ///
     /// Wraps `execute_transaction` in `catch_unwind` so that a panicking

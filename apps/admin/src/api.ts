@@ -1,4 +1,4 @@
-const RPC_URL = "http://127.0.0.1:9944";
+const RPC_URL = "http://178.104.202.101:9944";
 
 let rpcId = 0;
 

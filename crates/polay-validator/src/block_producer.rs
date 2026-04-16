@@ -90,7 +90,7 @@ impl BlockProducer {
             .unwrap_or_default()
             .as_secs();
 
-        // 4. Assemble the block.
+        // 5. Assemble the block.
         let block = BlockProposer::propose_block(
             height,
             0, // round 0 for single-validator MVP

@@ -1,4 +1,5 @@
 use std::pin::Pin;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
 use tokio::time::{self, Duration, Sleep};
@@ -64,6 +65,8 @@ pub struct ValidatorNode {
     event_bus: Option<Arc<EventBus>>,
     /// Epoch manager for automatic validator set rotation.
     epoch_manager: EpochManager,
+    /// Shared peer count, readable by the RPC server.
+    peer_count: Arc<AtomicU32>,
 }
 
 impl ValidatorNode {
@@ -105,6 +108,7 @@ impl ValidatorNode {
             network: None,
             event_bus: None,
             epoch_manager,
+            peer_count: Arc::new(AtomicU32::new(0)),
         })
     }
 
@@ -179,6 +183,11 @@ impl ValidatorNode {
     /// Return the underlying store `Arc`.
     pub fn store_arc(&self) -> Arc<dyn StateStore> {
         self.chain_state.store_arc()
+    }
+
+    /// Return a shared handle to the peer count, readable from the RPC layer.
+    pub fn peer_count_handle(&self) -> Arc<AtomicU32> {
+        Arc::clone(&self.peer_count)
     }
 
     // =======================================================================
@@ -273,12 +282,17 @@ impl ValidatorNode {
                                 timeout_active = true;
                             }
                             P2PEvent::PeerConnected(peer) => {
-                                info!(%peer, "peer connected");
+                                let c = self.peer_count.fetch_add(1, Ordering::Relaxed) + 1;
+                                info!(%peer, peers = c, "peer connected");
                             }
                             P2PEvent::PeerDisconnected(peer) => {
-                                info!(%peer, "peer disconnected");
+                                let prev = self.peer_count.load(Ordering::Relaxed);
+                                let c = prev.saturating_sub(1);
+                                self.peer_count.store(c, Ordering::Relaxed);
+                                info!(%peer, peers = c, "peer disconnected");
                             }
                             P2PEvent::PeerCount(count) => {
+                                self.peer_count.store(count as u32, Ordering::Relaxed);
                                 debug!(count, "peer count");
                             }
                         }
@@ -739,6 +753,15 @@ impl ValidatorNode {
                 error!(error = %e, height, "failed to apply committed block");
                 return;
             }
+
+            // Credit the per-block reward to the proposer.  This runs only
+            // during commit (not during proposal or validation) so that
+            // failed consensus rounds don't leave dirty state.
+            self.executor.apply_block_reward(
+                self.chain_state.store(),
+                &block.header.proposer,
+                height,
+            );
 
             // Prune executed transactions from the mempool.
             let tx_hashes: Vec<_> = block.transactions.iter().map(|tx| tx.tx_hash).collect();

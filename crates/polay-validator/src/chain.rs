@@ -4,6 +4,7 @@ use tracing::{debug, info};
 
 use polay_config::ChainConfig;
 use polay_genesis::{Genesis, GenesisAttestor, GenesisValidator};
+use polay_staking::register_in_validator_list;
 use polay_state::{StateStore, StateView, StateWriter};
 use polay_types::address::Address;
 use polay_types::block::Block;
@@ -70,6 +71,40 @@ impl ChainState {
                 current_height,
                 "chain already initialized, skipping genesis"
             );
+            // Migration: backfill the active validator set if missing.
+            // Older node versions didn't write this key at genesis.
+            let existing_set = view.get_active_validator_set()?;
+            if existing_set.is_none() || existing_set.as_ref().map_or(false, |s| s.is_empty()) {
+                let writer = StateWriter::new(self.store.as_ref());
+                let mut addrs = Vec::with_capacity(genesis.validators.len());
+                for gv in &genesis.validators {
+                    let addr = parse_address(&gv.address)?;
+                    addrs.push(addr);
+
+                    // Also register in the staking module's global validator list
+                    // so that epoch transitions can find them.
+                    register_in_validator_list(self.store.as_ref(), &addr)
+                        .map_err(|e| ValidatorError::Other(
+                            format!("failed to register validator in backfill: {e}"),
+                        ))?;
+                }
+                writer.set_active_validator_set(&addrs)?;
+
+                let total_staked: u64 = genesis.validators.iter().map(|v| v.stake).sum();
+                let epoch_info = polay_types::epoch::EpochInfo {
+                    epoch: 0,
+                    start_height: 0,
+                    end_height: self.chain_config.epoch_length.saturating_sub(1),
+                    validator_set: addrs,
+                    total_staked,
+                    rewards_distributed: 0,
+                };
+                writer.set_epoch_info(&epoch_info)?;
+                info!(
+                    validators = genesis.validators.len(),
+                    "backfilled active validator set from genesis"
+                );
+            }
             return Ok(());
         }
 
@@ -84,9 +119,27 @@ impl ChainState {
         }
 
         // Create validators.
+        let mut active_validators = Vec::with_capacity(genesis.validators.len());
         for gv in &genesis.validators {
             self.create_genesis_validator(gv)?;
+            let addr = parse_address(&gv.address)?;
+            active_validators.push(addr);
         }
+
+        // Write the active validator set so RPC queries can enumerate them.
+        writer.set_active_validator_set(&active_validators)?;
+
+        // Write epoch 0 info.
+        let total_staked_epoch: u64 = genesis.validators.iter().map(|v| v.stake).sum();
+        let epoch_info = polay_types::epoch::EpochInfo {
+            epoch: 0,
+            start_height: 0,
+            end_height: self.chain_config.epoch_length.saturating_sub(1),
+            validator_set: active_validators,
+            total_staked: total_staked_epoch,
+            rewards_distributed: 0,
+        };
+        writer.set_epoch_info(&epoch_info)?;
 
         // Create attestors.
         for ga in &genesis.attestors {
@@ -131,6 +184,11 @@ impl ChainState {
         let mut info = ValidatorInfo::new(addr, gv.commission_bps);
         info.stake = gv.stake;
         writer.set_validator(&info)?;
+
+        // Register in the global staking validator list so the epoch manager
+        // can find this validator during epoch transitions.
+        register_in_validator_list(self.store.as_ref(), &addr)
+            .map_err(|e| ValidatorError::Other(format!("failed to register validator: {e}")))?;
 
         debug!(
             address = %addr,

@@ -146,6 +146,11 @@ pub struct ChainConfig {
     pub parallel_execution: bool,
 
     // -- Economics settings --------------------------------------------------
+    /// Per-block reward minted to the block proposer (in base units).
+    /// Default is 100_000 (0.1 POL per block ≈ 1.58 % annual inflation at 2 s blocks).
+    #[serde(default = "default_block_reward")]
+    pub block_reward: u64,
+
     /// Fee distribution configuration (50% burn, 20% treasury, 30% validators).
     #[serde(default)]
     pub fee_distribution: FeeDistribution,
@@ -256,6 +261,9 @@ fn default_rpc_max_submissions_per_second() -> u32 {
 fn default_max_p2p_message_size() -> usize {
     10_485_760
 }
+fn default_block_reward() -> u64 {
+    100_000 // 0.1 POL per block
+}
 fn default_treasury_address() -> String {
     "00".repeat(32) // Address::ZERO as hex
 }
@@ -288,6 +296,7 @@ impl Default for ChainConfig {
             governance_quorum_bps: default_governance_quorum_bps(),
             pass_threshold_bps: default_pass_threshold_bps(),
             parallel_execution: false,
+            block_reward: default_block_reward(),
             fee_distribution: FeeDistribution::default(),
             inflation_params: InflationParams::default(),
             treasury_address: default_treasury_address(),

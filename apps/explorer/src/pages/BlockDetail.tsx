@@ -1,10 +1,18 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { fetchBlock, type BlockDetail as BlockDetailT } from "../api";
+import { fetchBlock, fetchBlockReward, type BlockDetail as BlockDetailT } from "../api";
 
 function truncHash(h: string, len = 12): string {
   if (!h) return "";
   return h.length > len * 2 ? `${h.slice(0, len)}...${h.slice(-len)}` : h;
+}
+
+function formatTime(ts: number): string {
+  return new Date(ts * 1000).toLocaleString();
+}
+
+function formatPOL(raw: number): string {
+  return (raw / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 6 });
 }
 
 export default function BlockDetail() {
@@ -14,6 +22,13 @@ export default function BlockDetail() {
     queryKey: ["block", height],
     queryFn: () => fetchBlock(height!),
     enabled: !!height,
+    retry: 2,
+  });
+
+  const reward = useQuery<number>({
+    queryKey: ["blockReward"],
+    queryFn: fetchBlockReward,
+    retry: 2,
   });
 
   if (isLoading) return <p className="muted">Loading block...</p>;
@@ -26,18 +41,23 @@ export default function BlockDetail() {
 
       <table className="kv-table">
         <tbody>
-          <tr><td className="kv-key">Height</td><td>{data.height}</td></tr>
+          <tr><td className="kv-key">Height</td><td>{data.height.toLocaleString()}</td></tr>
           <tr><td className="kv-key">Hash</td><td className="mono">{data.hash}</td></tr>
           <tr><td className="kv-key">Parent Hash</td><td className="mono">{data.parent_hash}</td></tr>
           <tr><td className="kv-key">State Root</td><td className="mono">{data.state_root}</td></tr>
-          <tr><td className="kv-key">Epoch</td><td>{data.epoch}</td></tr>
-          <tr><td className="kv-key">Validator</td>
+          <tr>
+            <td className="kv-key">Proposer</td>
             <td className="mono">
-              <Link to={`/account/${data.validator}`} className="link">{data.validator}</Link>
+              <Link to={`/account/${data.proposer}`} className="link">{data.proposer}</Link>
             </td>
           </tr>
-          <tr><td className="kv-key">Timestamp</td><td>{new Date(data.timestamp).toLocaleString()}</td></tr>
+          <tr>
+            <td className="kv-key">Block Reward</td>
+            <td>{reward.data != null ? `${formatPOL(reward.data)} POL` : "..."}</td>
+          </tr>
+          <tr><td className="kv-key">Timestamp</td><td>{formatTime(data.timestamp)}</td></tr>
           <tr><td className="kv-key">Transactions</td><td>{data.tx_count}</td></tr>
+          <tr><td className="kv-key">Chain ID</td><td>{data.chain_id}</td></tr>
         </tbody>
       </table>
 
@@ -55,11 +75,11 @@ export default function BlockDetail() {
               </tr>
             </thead>
             <tbody>
-              {data.transactions.map((tx) => (
-                <tr key={tx.hash}>
+              {data.transactions.map((tx: any) => (
+                <tr key={tx.hash || tx.tx_hash}>
                   <td className="mono">
-                    <Link to={`/tx/${tx.hash}`} className="link">
-                      {truncHash(tx.hash)}
+                    <Link to={`/tx/${tx.hash || tx.tx_hash}`} className="link">
+                      {truncHash(tx.hash || tx.tx_hash)}
                     </Link>
                   </td>
                   <td className="mono">

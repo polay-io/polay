@@ -562,12 +562,20 @@ impl P2PService {
                     let _ = swarm.disconnect_peer_id(peer_id);
                     return;
                 }
-                debug!(%peer_id, peers = peer_manager.peer_count(), "connection established");
+                let count = peer_manager.peer_count();
+                info!(%peer_id, peers = count, "connection established");
+                let _ = event_tx
+                    .send(P2PEvent::PeerConnected(peer_id.to_string()))
+                    .await;
             }
             SwarmEvent::ConnectionClosed { peer_id, .. } => {
                 peer_manager.on_peer_disconnected(&peer_id);
                 rate_limiter.remove_peer(&peer_id);
-                debug!(%peer_id, peers = peer_manager.peer_count(), "connection closed");
+                let count = peer_manager.peer_count();
+                info!(%peer_id, peers = count, "connection closed");
+                let _ = event_tx
+                    .send(P2PEvent::PeerDisconnected(peer_id.to_string()))
+                    .await;
             }
             _ => {}
         }

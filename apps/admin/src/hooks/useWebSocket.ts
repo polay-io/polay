@@ -11,7 +11,7 @@ export function useBlockSubscription(onBlock: (block: unknown) => void) {
   const [connected, setConnected] = useState(false);
 
   const connect = useCallback(() => {
-    const ws = new WebSocket("ws://127.0.0.1:9944");
+    const ws = new WebSocket("ws://178.104.202.101:9944");
     wsRef.current = ws;
 
     ws.onopen = () => {
